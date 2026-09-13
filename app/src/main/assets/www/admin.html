@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sepehran Logger — Web Administration</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+  /* Theme tokens — every colour in the app comes from these, so dark mode is a
+     token swap, not an inversion. Industry palette, warmed slightly. */
+  :root{
+    --bg:#f4f4f5; --surface:#ffffff; --card:transparent; --ink:#1b1e22;
+    --muted:rgba(27,30,34,.58); --line:rgba(27,30,34,.14); --line-strong:#1b1e22;
+    --acc:#5980a6; --acc-soft:#eaf2f9; --acc-deep:#2c455d; --on-acc:#ffffff;
+    --ok:#3f7a54; --ok-soft:#e8f2eb; --warn:#966016; --warn-soft:#fbf1e0;
+    --err:#93341a; --err-soft:#f9ece7; --disabled:rgba(27,30,34,.34);
+    --head:"Barlow Condensed",sans-serif; --body:"Inter","Barlow",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --shadow:0 16px 40px rgba(30,34,40,.14); --shadow-sm:0 2px 8px rgba(30,34,40,.07);
+    --radius:7px;
+  }
+  html[data-theme="dark"]{
+    --bg:#141c26; --surface:#1c2733; --card:transparent; --ink:#eef3f8;
+    --muted:rgba(238,243,248,.64); --line:rgba(238,243,248,.16); --line-strong:rgba(238,243,248,.42);
+    --acc:#8fbae6; --acc-soft:rgba(143,186,230,.14); --acc-deep:#c3ddf7; --on-acc:#0f1620;
+    --ok:#7fc79a; --ok-soft:rgba(127,199,154,.15); --warn:#e8b866; --warn-soft:rgba(232,184,102,.15);
+    --err:#e39b7f; --err-soft:rgba(227,155,127,.15); --disabled:rgba(238,243,248,.34);
+    --shadow:0 16px 44px rgba(0,0,0,.55); --shadow-sm:0 2px 10px rgba(0,0,0,.4);
+  }
+  html[lang="fa"]{--head:Vazirmatn,Tahoma,sans-serif;--body:Vazirmatn,Tahoma,sans-serif}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:400 14px/1.55 var(--body);display:flex;flex-direction:column;
+       -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  button,input,select,textarea{font-family:inherit;color:inherit;border-radius:var(--radius)}
+  input,select,textarea{background:var(--surface);border:1px solid var(--line);padding:0 11px;height:40px;
+       font-size:13.5px;width:100%;transition:border-color .12s,box-shadow .12s}
+  html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:rgba(255,255,255,.04)}
+  input:hover,select:hover,textarea:hover{border-color:var(--muted)}
+  textarea{height:auto;padding:9px 10px;resize:vertical;min-height:64px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+  select{cursor:pointer}
+  select option{background:var(--surface);color:var(--ink)}
+  button{cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--ink);
+         padding:9px 14px;font:500 13px/1.2 var(--body);transition:background .12s,border-color .12s}
+  button:hover:not(:disabled){background:var(--acc-soft)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:var(--acc);border-color:var(--acc);color:var(--on-acc);
+               font:600 13px/1.2 var(--head);letter-spacing:.06em;text-transform:uppercase;padding:10px 16px}
+  html[lang="fa"] .btn-primary{letter-spacing:0;text-transform:none;font-weight:600}
+  .btn-primary:hover:not(:disabled){background:var(--acc-deep);border-color:var(--acc-deep)}
+  .btn-danger{border-color:var(--err);color:var(--err)}
+  .btn-danger:hover:not(:disabled){background:var(--err-soft)}
+  .bp{position:relative;border:1px solid var(--line)}
+  .bp>i{position:absolute;width:11px;height:11px;color:var(--muted);pointer-events:none;
+        background:linear-gradient(currentColor,currentColor) 5px 0/1px 11px no-repeat,
+                   linear-gradient(currentColor,currentColor) 0 5px/11px 1px no-repeat}
+  .bp>i.tl{top:-6px;inset-inline-start:-6px}.bp>i.tr{top:-6px;inset-inline-end:-6px}
+  .bp>i.bl{bottom:-6px;inset-inline-start:-6px}.bp>i.br{bottom:-6px;inset-inline-end:-6px}
+  /* Plain frame for data tables — the crosshair corners read as clutter at this size. */
+  .tf{border:1px solid var(--line);border-radius:5px;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.02)}
+  html[data-theme="dark"] .tf{box-shadow:none}
+  .kick{font:600 9.5px/1.5 var(--mono);letter-spacing:.13em;color:var(--muted)}
+  html[lang="fa"] .kick{font-family:var(--body);letter-spacing:0;font-size:11px}
+  .mono{font:600 12.5px/1.5 var(--mono);letter-spacing:.02em}
+  .mono.ltr,td.mono,.pill,th{unicode-bidi:plaintext}
+  .h1{font:600 27px/1.2 var(--head)}
+  .h2{font:600 20px/1.3 var(--head)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+         padding:13px 22px;border-bottom:1px solid var(--line-strong);flex:none;
+         background:linear-gradient(180deg,var(--surface),var(--bg));
+         position:sticky;top:0;z-index:20;box-shadow:var(--shadow-sm)}
+  .shell{flex:1;display:flex;min-height:0}
+  nav{width:228px;flex:none;border-inline-end:1px solid var(--line);padding:6px 8px 24px;overflow-y:auto}
+  .nav-head{padding:14px 10px 5px;font:600 9.5px/1 var(--mono);letter-spacing:.13em;color:var(--disabled)}
+  html[lang="fa"] .nav-head{font-family:var(--body);letter-spacing:0;font-size:11px}
+  .nav-item{display:flex;align-items:center;gap:10px;width:100%;text-align:start;border:0;
+            padding:9px 11px;font:500 13.5px/1.4 var(--body);transition:background .12s;border-radius:var(--radius)}
+  .nav-item.on{background:var(--acc);color:var(--on-acc);box-shadow:var(--shadow-sm)}
+  .nav-item .n{margin-inline-start:auto;font:500 11px/1 var(--mono);opacity:.7}
+  main{flex:1;min-width:0;overflow-y:auto;padding:24px 26px 56px}
+  main>.h1{letter-spacing:-.005em}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:640px}
+  th{text-align:start;padding:11px 13px;border-bottom:1px solid var(--line-strong);white-space:nowrap;
+     font:600 9.5px/1.3 var(--mono);letter-spacing:.11em;color:var(--muted)}
+  html[lang="fa"] th{font-family:var(--body);letter-spacing:0;font-size:11.5px}
+  td{padding:11px 13px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:var(--acc-soft)}
+  .pill{display:inline-block;padding:3px 9px;border:1px solid var(--line);font:700 11px/1.6 var(--mono);letter-spacing:.03em}
+  html[lang="fa"] .pill{font-family:var(--body);letter-spacing:0;font-size:11px}
+  .pill.ok{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}
+  .pill.off{color:var(--muted)}
+  .pill.warn{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}
+  .row{display:flex;align-items:center;gap:9px}
+  .grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+  .grid>div{background:var(--bg);padding:15px 16px;transition:background .12s}
+  .grid>div[data-act]:hover{background:var(--soft,var(--acc-soft))}
+  .empty{border:1px dashed var(--muted);padding:40px 24px;text-align:center;display:flex;
+         flex-direction:column;align-items:center;gap:11px}
+  .note{font-size:12.5px;line-height:1.65;color:var(--muted);max-width:46em}
+  .modal{position:fixed;inset:0;background:rgba(12,20,28,.62);display:flex;align-items:flex-start;
+         justify-content:center;padding:36px 20px;z-index:40;overflow-y:auto}
+  .sheet{background:var(--bg);border:1px solid var(--line-strong);padding:24px;width:100%;
+         max-width:640px;box-shadow:var(--shadow)}
+  .sheet.narrow{max-width:440px}
+  .field{margin-bottom:15px}
+  .field label{display:block;margin-bottom:5px;font:600 9.5px/1.5 var(--mono);letter-spacing:.11em;color:var(--muted)}
+  html[lang="fa"] .field label{font-family:var(--body);letter-spacing:0;font-size:11.5px}
+  .field .err{margin-top:4px;font-size:11.5px;color:var(--err)}
+  .field.bad input,.field.bad select,.field.bad textarea{border-color:var(--err)}
+  .fieldgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+  .fieldgrid .full{grid-column:1/-1}
+  .toast{position:fixed;inset-block-end:20px;inset-inline-start:50%;transform:translateX(-50%);
+         padding:12px 18px;border:1px solid var(--line-strong);background:var(--bg);
+         box-shadow:var(--shadow);z-index:60;font-size:13.5px;max-width:min(90vw,520px)}
+  html[dir="rtl"] .toast{transform:translateX(50%)}
+  .toast.ok{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}
+  .toast.err{border-color:var(--err);color:var(--err);background:var(--err-soft)}
+  .login{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+  .loginbox{width:100%;max-width:390px}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;max-height:230px;overflow-y:auto;
+          border:1px solid var(--line);padding:10px;border-radius:var(--radius);background:var(--surface)}
+  .permtree{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+  .permgroup+.permgroup{border-top:1px solid var(--line)}
+  .permgroup-head{display:flex;align-items:center;gap:10px;padding:9px 12px;
+                  background:var(--acc-soft);border-bottom:1px solid var(--line)}
+  .permgroup-head b{font:600 12.5px/1.3 var(--head);letter-spacing:.03em;text-transform:uppercase}
+  html[lang="fa"] .permgroup-head b{font-family:var(--body);font-size:13px;letter-spacing:0;text-transform:none}
+  .permcount{font:600 10.5px/1 var(--mono);color:var(--muted)}
+  .permall{margin-inline-start:auto;padding:4px 10px;font-size:11.5px;background:var(--bg)}
+  .permgroup-body{padding:0 0 3px}
+  .permhead,.permrow{display:grid;grid-template-columns:minmax(140px,1fr) repeat(6,50px);
+                     align-items:center;padding:0 12px}
+  .permhead{padding:8px 12px 6px;border-bottom:1px solid var(--line)}
+  .permhead span{font:600 9px/1.3 var(--mono);letter-spacing:.09em;color:var(--muted);text-align:center}
+  html[lang="fa"] .permhead span{font-family:var(--body);letter-spacing:0;font-size:10.5px}
+  .permhead span:first-child{text-align:start}
+  .permrow{min-height:34px}
+  .permrow:hover{background:var(--acc-soft)}
+  .permrow+.permrow{border-top:1px solid var(--line)}
+  .plabel{font-size:12.5px}
+  .pcell{display:flex;align-items:center;justify-content:center}
+  .pcell input{width:15px;height:15px;margin:0;cursor:pointer}
+  .pna{color:var(--disabled);text-align:center;font-size:12px}
+  .exportRow{display:flex;gap:8px;align-items:center}
+  .exportRow button{padding:7px 12px;font-size:12px}
+  .checks label{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:400;
+                letter-spacing:0;text-transform:none;color:var(--ink);margin:0}
+  .checks input{width:15px;height:15px;flex:none}
+  svg{display:block}
+  @media (max-width:860px){
+    nav{position:fixed;inset-block:0;inset-inline-start:0;z-index:30;background:var(--bg);
+        transform:translateX(-102%);transition:transform .18s;box-shadow:var(--shadow)}
+    html[dir="rtl"] nav{transform:translateX(102%)}
+    nav.open{transform:none}
+    .menu-btn{display:inline-flex!important}
+    .fieldgrid{grid-template-columns:1fr}
+  }
+  .menu-btn{display:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="sepehran-core.js" data-client="web"></script>
+<script>
+/* ===========================================================================
+   Sepehran Logger — Web Administration.
+   Every action here calls SepehranCore, which persists. No button is
+   decorative: if it renders, it changes data or navigates.
+   =========================================================================== */
+var C = window.SepehranCore;
+var root = document.getElementById("root");
+
+var S = {
+  view: "dashboard", site: "ALL", q: "", statusFilter: "ALL",
+  form: null,        // { entity, id|null, values, errors }
+  confirm: null,     // { title, body, danger, onYes }
+  info: null,        // { title, body, rows }
+  navOpen: false, toast: null,
+  colEquip: null, colValues: {}, colNote: "", colQ: ""   // data-collection screen
+};
+
+/* ── I18N ─────────────────────────────────────────────────────────────── */
+var STR = {
+  en: {
+    brand:"SEPEHRAN LOGGER", brandSub:"WEB ADMINISTRATION",
+    signIn:"Sign in", signInSub:"One account works on both the web panel and the Android application.",
+    username:"USERNAME", password:"PASSWORD", login:"Log in", logout:"Sign out",
+    firstRun:"First run — sign in with", changePw:"Change password",
+    mustChange:"You are using the bootstrap password. Change it now.",
+    newPassword:"NEW PASSWORD", confirmPassword:"CONFIRM PASSWORD", pwMismatch:"The two passwords do not match.",
+    pwChanged:"Password changed.",
+    site:"SITE", allSites:"All sites", theme:"Theme", light:"Light", dark:"Dark",
+    navOps:"OPERATIONS", navMaster:"MASTER DATA", navAdmin:"ADMINISTRATION",
+    dashboard:"Dashboard", audit:"Audit log", settings:"Settings",
+    search:"Search…", statusAll:"All statuses", statusActive:"Active", statusInactive:"Inactive",
+    create:"+ Create", edit:"Edit", del:"Delete", deactivate:"Deactivate", activate:"Activate",
+    save:"Save", cancel:"Cancel", close:"Close", actions:"ACTIONS", status:"STATUS",
+    createTitle:"Create {entity}", editTitle:"Edit {entity}",
+    created:"{entity} created.", updated:"{entity} updated.",
+    deleted:"{entity} deleted.", activated:"Activated.", deactivated:"Deactivated.",
+    confirmDelete:"Delete this record?",
+    confirmDeleteBody:"“{name}” will be permanently removed. This cannot be undone.",
+    confirmDeactivate:"Deactivate this record?",
+    confirmDeactivateBody:"“{name}” stays in the database and in every historical record, but cannot be chosen for new ones.",
+    cannotDelete:"{name} cannot be deleted",
+    cannotDeleteBody:"This item is referenced by existing records. Deleting it would break historical traceability, so the operation is refused. Deactivate it instead.",
+    referencesFound:"References found", rule:"Rule",
+    noRows:"Nothing here yet", noRowsSub:"Use the Create button to add the first record.",
+    noMatch:"No record matches your search", clearSearch:"Clear search",
+    showing:"{n} of {total}", required:"required",
+    dashTitle:"System overview", dashSub:"Clean base. Sites are preserved; everything else is yours to define.",
+    kSites:"SITES", kGroups:"GROUPS", kEquipment:"EQUIPMENT", kParameters:"PARAMETERS",
+    kUnits:"UNITS", kUsers:"USERS", kRecords:"RECORDS", kAssignments:"ASSIGNMENTS",
+    setupTitle:"Suggested order", setupSub:"Each step needs the one before it.",
+    step:"Step", done:"done", todo:"to do", openStep:"Open",
+    auditTitle:"Audit log", auditSub:"Every create, update, status change, deletion and sign-in on this system.",
+    when:"WHEN", actor:"ACTOR", action:"ACTION", entity:"ENTITY", detail:"DETAIL",
+    settingsTitle:"Settings", settingsSub:"Server endpoint and development tools.",
+    serverUrl:"BACKEND API BASE URL", serverUrlNote:"Sent to devices at login. Not compiled into the APK.",
+    resetTitle:"Reset to clean base", resetNote:"Clears all master data, records and non-admin users. Keeps the three sites and the admin account. Same effect as migration 010.",
+    resetBtn:"Reset all data", resetConfirm:"Reset the whole system?",
+    resetConfirmBody:"All equipment, groups, parameters, units, assignments, schedules, readings and non-admin users will be removed. The three sites and the admin account are kept. This cannot be undone.",
+    resetDone:"System reset. Three sites and the admin account remain.",
+    exportBtn:"Export data as JSON", exported:"Data exported to a new tab.",
+    permissions:"PERMISSIONS", siteAccessAll:"All sites", perms:"perms",
+    selectAll:"Select all", clearAll:"Clear all",
+    importWb:"Import from workbook", importWbNote:"Clears all master data and operational records, then rebuilds every sheet with its relations intact. Users, roles, shifts and sites are kept.",
+    importWbBtn:"Import Excel master data", importWbConfirm:"Replace all master data?",
+    importWbConfirmBody:"Equipment, groups, types, areas, units, parameters, assignments, schedules and every recorded reading are cleared, then rebuilt from the workbook. Users, roles, shifts and sites stay. This cannot be undone.",
+    importWbDone:"Imported: {eq} equipment · {pa} parameters · {un} units · {gr} groups · {ar} areas · {ty} types",
+    importWbWarn:"{n} rows needed attention — see the audit log.",
+    yes:"Yes", no:"No", none:"—", system:"System record",
+    exportExcel:"Excel", exportWord:"Word", exportPdf:"PDF",
+    canAccess:"Allowed", photoHint:"JPG or PNG, compressed automatically.",
+    collection:"Data collection", collectionSub:"Enter a reading exactly as a site technician would on the Android app — same equipment, same parameters, same validation.",
+    pickEquipment:"Choose equipment", noEquipForSite:"No active equipment on this site yet.",
+    backToList:"Back to equipment", parametersFor:"Parameters for {tag}",
+    noParamsAssigned:"No parameters are assigned to this equipment yet — do that under Equipment ↔ parameter.",
+    valueCol:"VALUE", statusCol:"STATUS", normalV:"Normal", abnormalV:"Abnormal", notEnteredV:"Not entered", invalidV:"Invalid value",
+    obs:"Observation", obsPh:"Leakage, noise, vibration, visible damage…",
+    saveReading:"Save reading", savedReading:"Reading saved and queued for sync.",
+    fillRequired:"Fill every required parameter before saving.",
+    chartTitle:"EQUIPMENT COVERAGE TODAY", chartCompleted:"Recorded today", chartMissing:"No record today",
+    chartAbnormalTitle:"ABNORMAL READINGS BY SITE"
+  },
+  fa: {
+    brand:"دیتالاگر سپهران", brandSub:"پنل مدیریت تحت وب",
+    signIn:"ورود به سامانه", signInSub:"یک حساب کاربری برای پنل وب و اپلیکیشن اندروید.",
+    username:"نام کاربری", password:"گذرواژه", login:"ورود", logout:"خروج",
+    firstRun:"اولین اجرا — ورود با", changePw:"تغییر گذرواژه",
+    mustChange:"شما از گذرواژه اولیه استفاده می‌کنید. همین حالا آن را تغییر دهید.",
+    newPassword:"گذرواژه جدید", confirmPassword:"تکرار گذرواژه", pwMismatch:"دو گذرواژه یکسان نیستند.",
+    pwChanged:"گذرواژه تغییر کرد.",
+    site:"سایت", allSites:"همه سایت‌ها", theme:"پوسته", light:"روشن", dark:"تاریک",
+    navOps:"عملیات", navMaster:"داده پایه", navAdmin:"مدیریت سامانه",
+    dashboard:"داشبورد", audit:"گزارش ممیزی", settings:"تنظیمات",
+    search:"جست‌وجو…", statusAll:"همه وضعیت‌ها", statusActive:"فعال", statusInactive:"غیرفعال",
+    create:"+ ایجاد", edit:"ویرایش", del:"حذف", deactivate:"غیرفعال کردن", activate:"فعال کردن",
+    save:"ذخیره", cancel:"انصراف", close:"بستن", actions:"عملیات", status:"وضعیت",
+    createTitle:"ایجاد {entity}", editTitle:"ویرایش {entity}",
+    created:"{entity} ایجاد شد.", updated:"{entity} به‌روزرسانی شد.",
+    deleted:"{entity} حذف شد.", activated:"فعال شد.", deactivated:"غیرفعال شد.",
+    confirmDelete:"این رکورد حذف شود؟",
+    confirmDeleteBody:"«{name}» برای همیشه حذف می‌شود. این عمل قابل بازگشت نیست.",
+    confirmDeactivate:"این رکورد غیرفعال شود؟",
+    confirmDeactivateBody:"«{name}» در پایگاه داده و در همه سوابق باقی می‌ماند، اما در رکوردهای جدید قابل انتخاب نیست.",
+    cannotDelete:"«{name}» قابل حذف نیست",
+    cannotDeleteBody:"این مورد در رکوردهای موجود استفاده شده است. حذف آن سوابق تاریخی را از بین می‌برد، بنابراین عملیات رد شد. به جای آن غیرفعالش کنید.",
+    referencesFound:"ارجاع‌های یافت‌شده", rule:"قاعده",
+    noRows:"هنوز چیزی ثبت نشده است", noRowsSub:"با دکمه ایجاد، اولین رکورد را اضافه کنید.",
+    noMatch:"رکوردی با این جست‌وجو پیدا نشد", clearSearch:"پاک کردن جست‌وجو",
+    showing:"نمایش {n} از {total}", required:"الزامی",
+    dashTitle:"نمای کلی سامانه", dashSub:"پایه تمیز. سایت‌ها حفظ شده‌اند؛ بقیه داده پایه را خودتان تعریف می‌کنید.",
+    kSites:"سایت‌ها", kGroups:"گروه‌ها", kEquipment:"تجهیزات", kParameters:"پارامترها",
+    kUnits:"واحدها", kUsers:"کاربران", kRecords:"رکوردها", kAssignments:"تخصیص‌ها",
+    setupTitle:"ترتیب پیشنهادی", setupSub:"هر مرحله به مرحله قبل نیاز دارد.",
+    step:"مرحله", done:"انجام شد", todo:"باقی مانده", openStep:"باز کردن",
+    auditTitle:"گزارش ممیزی", auditSub:"هر ایجاد، ویرایش، تغییر وضعیت، حذف و ورود در این سامانه.",
+    when:"زمان", actor:"کاربر", action:"عملیات", entity:"موجودیت", detail:"جزئیات",
+    settingsTitle:"تنظیمات", settingsSub:"آدرس سرور و ابزارهای توسعه.",
+    serverUrl:"آدرس سرور", serverUrlNote:"هنگام ورود به دستگاه‌ها اعلام می‌شود و در APK ثابت نیست.",
+    resetTitle:"بازنشانی به پایه تمیز", resetNote:"همه داده پایه، رکوردها و کاربران غیرمدیر حذف می‌شوند. سه سایت و حساب مدیر باقی می‌مانند. معادل مهاجرت ۰۱۰.",
+    resetBtn:"بازنشانی همه داده‌ها", resetConfirm:"کل سامانه بازنشانی شود؟",
+    resetConfirmBody:"همه تجهیزات، گروه‌ها، پارامترها، واحدها، تخصیص‌ها، زمان‌بندی‌ها، داده‌های ثبت‌شده و کاربران غیرمدیر حذف می‌شوند. سه سایت و حساب مدیر باقی می‌مانند. این عمل قابل بازگشت نیست.",
+    resetDone:"سامانه بازنشانی شد. سه سایت و حساب مدیر باقی ماندند.",
+    exportBtn:"خروجی JSON", exported:"داده‌ها در تب جدید باز شد.",
+    permissions:"دسترسی‌ها", siteAccessAll:"همه سایت‌ها", perms:"دسترسی",
+    selectAll:"انتخاب همه", clearAll:"حذف همه",
+    importWb:"ورود از فایل اکسل", importWbNote:"همه داده پایه و رکوردهای عملیاتی پاک می‌شود و تمام شیت‌ها با روابط کامل بازسازی می‌شوند. کاربران، نقش‌ها، شیفت‌ها و سایت‌ها باقی می‌مانند.",
+    importWbBtn:"ورود داده پایه از اکسل", importWbConfirm:"همه داده پایه جایگزین شود؟",
+    importWbConfirmBody:"تجهیزات، گروه‌ها، انواع، ناحیه‌ها، واحدها، پارامترها، تخصیص‌ها، زمان‌بندی‌ها و همه داده‌های ثبت‌شده پاک و از فایل اکسل بازسازی می‌شوند. کاربران، نقش‌ها، شیفت‌ها و سایت‌ها باقی می‌مانند. این عمل قابل بازگشت نیست.",
+    importWbDone:"وارد شد: {eq} تجهیز · {pa} پارامتر · {un} واحد · {gr} گروه · {ar} ناحیه · {ty} نوع",
+    importWbWarn:"{n} سطر نیاز به بررسی داشت — گزارش ممیزی را ببینید.",
+    yes:"بله", no:"خیر", none:"—", system:"رکورد سیستمی",
+    exportExcel:"اکسل", exportWord:"ورد", exportPdf:"PDF",
+    canAccess:"مجاز", photoHint:"JPG یا PNG — به‌صورت خودکار فشرده می‌شود.",
+    collection:"ثبت داده", collectionSub:"دقیقاً مثل اپلیکیشن اندروید — همان تجهیز، همان پارامترها، همان اعتبارسنجی.",
+    pickEquipment:"انتخاب تجهیز", noEquipForSite:"هنوز تجهیز فعالی برای این سایت ثبت نشده است.",
+    backToList:"بازگشت به فهرست تجهیزات", parametersFor:"پارامترهای {tag}",
+    noParamsAssigned:"برای این تجهیز هنوز پارامتری تخصیص نیافته — از «تخصیص پارامتر» اضافه کنید.",
+    valueCol:"مقدار", statusCol:"وضعیت", normalV:"عادی", abnormalV:"غیرعادی", notEnteredV:"ثبت نشده", invalidV:"مقدار نامعتبر",
+    obs:"مشاهدات", obsPh:"نشتی، صدا، لرزش، آسیب ظاهری…",
+    saveReading:"ثبت داده", savedReading:"داده ثبت شد و در صف همگام‌سازی قرار گرفت.",
+    fillRequired:"همه پارامترهای الزامی را قبل از ذخیره تکمیل کنید.",
+    chartTitle:"پوشش تجهیزات امروز", chartCompleted:"ثبت‌شده امروز", chartMissing:"بدون ثبت امروز",
+    chartAbnormalTitle:"مقادیر غیرعادی به تفکیک سایت"
+  }
+};
+var FA_D = "۰۱۲۳۴۵۶۷۸۹";
+function lang(){ return C.lang(); }
+function T(k, vars){
+  var s = (STR[lang()] && STR[lang()][k]) || STR.en[k] || k;
+  if (vars) Object.keys(vars).forEach(function(x){ s = s.split("{"+x+"}").join(vars[x]); });
+  return lang()==="fa" ? s.replace(/[0-9]/g, function(d){return FA_D[+d];}) : s;
+}
+function N(v){ return lang()==="fa" ? String(v).replace(/[0-9]/g,function(d){return FA_D[+d];}) : String(v); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function downloadBlob(content, filename, mime){
+  var blob = new Blob([content], { type: mime });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+}
+function entityLabel(e){
+  var def = C.schema[e]; if (!def) return e;
+  var faNames = { site:"سایت", area:"ناحیه", equipmentType:"نوع تجهیز", unit:"واحد اندازه‌گیری",
+    group:"گروه تجهیزات", equipment:"تجهیز", parameter:"پارامتر",
+    equipmentParameter:"تخصیص پارامتر", shift:"شیفت", schedule:"زمان‌بندی",
+    role:"نقش و دسترسی", user:"کاربر" };
+  var enNames = { role: "Role & permissions" };
+  return lang()==="fa" ? (faNames[e]||def.label) : (enNames[e]||def.label);
+}
+function fieldLabel(f){ return lang()==="fa" ? (f.labelFa||f.label) : f.label; }
+
+/* ── Navigation definition ────────────────────────────────────────────── */
+var NAV = [
+  { head:"navOps" },
+  { key:"dashboard", label:"dashboard", mark:"◧" },
+  { key:"collection", label:"collection", mark:"▤" },
+  { head:"navMaster" },
+  { key:"site", mark:"◇" }, { key:"area", mark:"◌" }, { key:"equipmentType", mark:"◍" },
+  { key:"group", mark:"◈" }, { key:"equipment", mark:"▣" },
+  { key:"unit", mark:"±" }, { key:"parameter", mark:"◉" },
+  { key:"equipmentParameter", mark:"⇄" }, { key:"schedule", mark:"◷" },
+  { head:"navAdmin" },
+  { key:"user", mark:"◐" }, { key:"role", mark:"◑" }, { key:"shift", mark:"◔" },
+  { key:"audit", label:"audit", mark:"▦" }, { key:"settings", label:"settings", mark:"⚙" }
+];
+
+/* ── Toast ────────────────────────────────────────────────────────────── */
+/* ── Toast ────────────────────────────────────────────────────────────── */
+var toastTimer = null;
+function toast(msg, kind){
+  S.toast = { msg: msg, kind: kind || "ok" };
+  render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ S.toast = null; render(); }, 3200);
+}
+
+/* ── Table column selection per entity ────────────────────────────────── */
+function columnsFor(entity){
+  var def = C.schema[entity];
+  var skip = { notes:1, description:1, password:1, manufacturer:1, model:1,
+               serialNo:1, mobile:1, jobTitle:1, permissions:1, siteAccess:1 };
+  var cols = def.fields.filter(function(f){ return !skip[f.k]; });
+  if (entity === "user") cols = def.fields.filter(function(f){
+    return ["username","personnelCode","fullNameEn","roleId","shiftId"].indexOf(f.k)>=0; });
+  if (entity === "role") cols = def.fields.filter(function(f){
+    return ["roleCode","nameEn","nameFa"].indexOf(f.k)>=0; });
+  if (entity === "equipment") cols = def.fields.filter(function(f){
+    return ["tagNumber","equipmentCode","siteId","equipmentTypeId","groupId","nfcTagId","criticality"].indexOf(f.k)>=0; });
+  if (entity === "parameter") cols = def.fields.filter(function(f){
+    return ["parameterCode","nameEn","dataType","unitId","photoPolicy"].indexOf(f.k)>=0; });
+  if (entity === "unit") cols = def.fields.filter(function(f){
+    return ["unitCode","symbol","nameEn","nameFa","kind"].indexOf(f.k)>=0; });
+  if (entity === "equipmentParameter") cols = def.fields.filter(function(f){
+    return ["equipmentId","parameterId","normalMinOverride","normalMaxOverride","expectedBoolOverride","isRequired"].indexOf(f.k)>=0; });
+  return cols;
+}
+
+function cellText(entity, row, f){
+  var v = row[f.k];
+  if (entity === "equipmentParameter" && (f.k === "normalMinOverride" || f.k === "normalMaxOverride" || f.k === "expectedBoolOverride")) {
+    var p1 = C.get("parameter", row.parameterId);
+    var need = p1 && ((f.k === "expectedBoolOverride" && p1.dataType === "BOOLEAN") ||
+      ((f.k === "normalMinOverride" || f.k === "normalMaxOverride") && p1.dataType === "NUMERIC"));
+    if (!need) return "—";
+  }
+  if (f.type === "ref") {
+    var t = v ? C.get(f.ref, v) : null;
+    return t ? C.labelOf(f.ref, t).split(" — ")[0] : "—";
+  }
+  if (f.type === "bool") return v ? T("yes") : T("no");
+  if (v === null || v === undefined || v === "") return "—";
+  if (f.k === "permissions") return N(v.length) + " " + T("perms");
+  // Codes/tags/IDs always render in Latin digits — never Persian-numeral'd.
+  if (f.type === "number") return N(v);
+  return v;
+}
+
+/* ── Render ───────────────────────────────────────────────────────────── */
+function render(){
+  var s = C.session();
+  document.documentElement.setAttribute("data-theme", C.theme());
+  document.documentElement.setAttribute("lang", lang());
+  document.documentElement.setAttribute("dir", lang()==="fa" ? "rtl" : "ltr");
+
+  if (!s) { root.innerHTML = loginView(); wire(); return; }
+  root.innerHTML = headerView(s) + '<div class="shell">' + navView() + '<main>' + mainView() + '</main></div>'
+    + formView() + confirmView() + infoView() + toastView();
+  wire();
+}
+
+function toastView(){
+  if (!S.toast) return "";
+  return '<div class="toast '+S.toast.kind+'">'+esc(S.toast.msg)+'</div>';
+}
+
+function loginView(){
+  var noUsers = C.list("user").length;
+  return '<div class="login"><div class="loginbox">'
+    + '<div class="row" style="gap:11px;margin-bottom:26px">'
+    +   '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5">'
+    +   '<circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="12" r="1.2" fill="var(--acc)" stroke="none"/>'
+    +   '<line x1="12" y1="12" x2="17.5" y2="8.4" stroke="var(--ink)"/></svg>'
+    +   '<div><div style="font:600 19px/1.2 var(--head)">'+T("brand")+'</div>'
+    +   '<div class="kick">'+T("brandSub")+'</div></div></div>'
+    + '<div class="h1">'+T("signIn")+'</div>'
+    + '<div class="note" style="margin:6px 0 20px">'+T("signInSub")+'</div>'
+    + '<div id="loginErr"></div>'
+    + '<div class="field"><label>'+T("username")+'</label>'
+    +   '<input id="lu" autocapitalize="none" autocorrect="off" value="" style="height:44px;font-size:15px"></div>'
+    + '<div class="field"><label>'+T("password")+'</label>'
+    +   '<input id="lp" type="password" value="" style="height:44px;font-size:15px"></div>'
+    + '<button class="btn-primary" data-act="login" style="width:100%;height:48px">'+T("login")+'</button>'
+    + '<div class="row" style="margin-top:20px;justify-content:space-between">'
+    +   '<button data-act="lang">'+(lang()==="fa"?"EN":"فارسی")+'</button>'
+    +   '<button data-act="theme">'+(C.theme()==="dark"?"☀ "+T("light"):"🌙 "+T("dark"))+'</button>'
+    + '</div>'
+    + '</div></div>';
+}
+
+function headerView(s){
+  var sites = C.list("site", { status:"ACTIVE" });
+  return '<header>'
+    + '<div class="row">'
+    +   '<button class="menu-btn" data-act="nav" style="padding:7px 10px">☰</button>'
+    +   '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5">'
+    +   '<circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="12" r="1.2" fill="var(--acc)" stroke="none"/>'
+    +   '<line x1="12" y1="12" x2="17.5" y2="8.4" stroke="var(--ink)"/></svg>'
+    +   '<div><div style="font:600 16px/1.2 var(--head)">'+T("brand")+'</div>'
+    +   '<div class="kick">'+T("brandSub")+'</div></div>'
+    + '</div>'
+    + '<div class="row" style="flex-wrap:wrap;gap:8px">'
+    +   '<span class="kick">'+T("site")+'</span>'
+    +   '<select id="siteSel" data-act="site" style="width:auto;min-width:150px;height:34px">'
+    +     '<option value="ALL"'+(S.site==="ALL"?" selected":"")+'>'+T("allSites")+'</option>'
+    +     sites.map(function(x){ return '<option value="'+x.id+'"'+(S.site===x.id?" selected":"")+'>'
+    +       esc(x.siteCode+" — "+(lang()==="fa"?x.nameFa:x.nameEn))+'</option>'; }).join("")
+    +   '</select>'
+    +   '<button data-act="lang" style="padding:7px 11px">'+(lang()==="fa"?"EN":"فا")+'</button>'
+    +   '<button data-act="theme" style="padding:7px 11px">'+(C.theme()==="dark"?"☀":"🌙")+'</button>'
+    +   '<div class="row" style="padding-inline-start:10px;border-inline-start:1px solid var(--line)">'
+    +     '<div><div style="font:500 12.5px/1.3 var(--body)">'
+    +       esc(lang()==="fa"?s.fullNameFa:s.fullNameEn)+'</div>'
+    +       '<div class="kick">'+esc(lang()==="fa"?s.roleNameFa:s.roleNameEn)+'</div></div>'
+    +     '<button data-act="logout" style="padding:7px 11px">'+T("logout")+'</button>'
+    +   '</div>'
+    + '</div></header>';
+}
+
+function navView(){
+  var counts = C.counts();
+  return '<nav class="'+(S.navOpen?"open":"")+'">' + NAV.map(function(n){
+    if (n.head) return '<div class="nav-head">'+T(n.head)+'</div>';
+    var label = n.label ? T(n.label) : entityLabel(n.key);
+    var cnt = counts[n.key];
+    return '<button class="nav-item'+(S.view===n.key?" on":"")+'" data-act="go" data-v="'+n.key+'">'
+      + '<span style="width:15px;opacity:.6;font:600 10px/1 var(--mono)">'+n.mark+'</span>'
+      + '<span>'+esc(label)+'</span>'
+      + (cnt !== undefined ? '<span class="n">'+N(cnt)+'</span>' : '')
+      + '</button>';
+  }).join("") + '</nav>';
+}
+
+function mainView(){
+  if (S.view === "dashboard") return dashboardView();
+  if (S.view === "collection") return collectionView();
+  if (S.view === "audit") return auditView();
+  if (S.view === "settings") return settingsView();
+  return tableView(S.view);
+}
+
+/* ── Data collection — the same flow the Android app runs, for the web. ── */
+function collectionValidate(raw, row){
+  var text = (raw==null?"":String(raw)).trim();
+  if (!text) return "NOT_ENTERED";
+  if (row.dataType === "BOOLEAN") {
+    if (text !== "true" && text !== "false") return "INVALID";
+    if (row.expectedBool == null) return "NORMAL";
+    return (text === "true") === !!row.expectedBool ? "NORMAL" : "ABNORMAL";
+  }
+  if (row.dataType === "TEXT") return "NORMAL";
+  var v = Number(text);
+  if (!isFinite(v)) return "INVALID";
+  if (row.min == null || row.max == null || row.min >= row.max) return "NORMAL";
+  return (v < row.min || v > row.max) ? "ABNORMAL" : "NORMAL";
+}
+
+function collectionView(){
+  var eqs0 = C.list("equipment", { status:"ACTIVE", siteId: S.site });
+  var q = (S.colQ||"").trim().toLowerCase();
+  var eqs = !q ? eqs0 : eqs0.filter(function(e){
+    return (e.tagNumber+" "+e.nameEn+" "+e.nameFa).toLowerCase().indexOf(q) >= 0;
+  });
+  if (!S.colEquip) {
+    return '<div class="h1">'+T("collection")+'</div>'
+      + '<div class="note" style="margin:5px 0 18px">'+T("collectionSub")+'</div>'
+      + '<div class="row" style="margin-bottom:13px;gap:9px">'
+      +   '<input id="colQ" value="'+esc(S.colQ||"")+'" placeholder="'+T("search")+'" style="max-width:280px;height:36px">'
+      +   (S.colQ ? '<button data-act="colClearq">'+T("clearSearch")+'</button>' : '')
+      +   '<span class="kick" style="margin-inline-start:auto">'+T("showing",{n:N(eqs.length),total:N(eqs0.length)})+'</span>'
+      + '</div>'
+      + (eqs0.length === 0 ? '<div class="empty"><div class="h2">'+T("noEquipForSite")+'</div></div>'
+        : eqs.length ? '<div class="tf"><div class="tablewrap"><table><thead><tr>'
+          + '<th>'+T("tag")+'</th><th>'+T("nameEn")+'</th><th>'+T("siteCol")+'</th><th style="text-align:end"></th></tr></thead><tbody>'
+          + eqs.map(function(e){
+              var site = C.get("site", e.siteId);
+              return '<tr><td class="mono" style="color:var(--acc)">'+esc(e.tagNumber)+'</td>'
+                + '<td>'+esc(e.nameEn)+'</td>'
+                + '<td class="mono">'+esc(site?site.siteCode:"—")+'</td>'
+                + '<td style="text-align:end"><button class="btn-primary" data-act="colOpen" data-v="'+e.id+'">'+T("pickEquipment")+'</button></td></tr>';
+            }).join("") + '</tbody></table></div></div>'
+        : '<div class="empty"><div class="h2">'+T("noMatch")+'</div><button data-act="colClearq">'+T("clearSearch")+'</button></div>');
+  }
+
+  var eq = C.get("equipment", S.colEquip);
+  if (!eq) { S.colEquip = null; return collectionView(); }
+  var rows = C.parametersFor(eq.id);
+  var guardMsg = S.colGuard || null;
+
+  var body = '<button data-act="colBack" style="margin-bottom:14px">← '+T("backToList")+'</button>'
+    + '<div class="h1">'+esc(eq.tagNumber)+' <span style="color:var(--muted);font-weight:400">— '+esc(eq.nameEn)+'</span></div>'
+    + '<div class="note" style="margin:5px 0 18px">'+T("parametersFor",{tag:eq.tagNumber})+'</div>';
+
+  if (!rows.length) return body + '<div class="empty"><div class="h2">'+T("noParamsAssigned")+'</div></div>';
+  if (guardMsg) body += '<div class="field bad" style="max-width:640px"><div class="err" style="font-size:13px">'+esc(guardMsg)+'</div></div>';
+
+  body += '<div class="tf" style="max-width:900px"><div class="tablewrap"><table><thead><tr>'
+    + '<th>'+T("parameter")+'</th><th>'+T("valueCol")+'</th><th>'+T("statusCol")+'</th></tr></thead><tbody>'
+    + rows.map(function(r){
+        var raw = S.colValues[r.code] ?? "";
+        var st = collectionValidate(raw, r);
+        var badgeMap = { NORMAL:["ok",T("normalV")], ABNORMAL:["warn",T("abnormalV")], NOT_ENTERED:["off",T("notEnteredV")], INVALID:["warn",T("invalidV")] };
+        var badge = badgeMap[st];
+        var name = lang()==="fa" ? r.nameFa : r.nameEn;
+        var ctl;
+        if (r.dataType === "BOOLEAN") {
+          var t1 = r.trueLabel || T("yes"), f1 = r.falseLabel || T("no");
+          ctl = '<div class="row" style="gap:6px">'
+            + '<button data-act="colBool" data-v="'+r.code+'" data-b="true" style="'+(raw==="true"?"background:var(--acc);color:var(--on-acc);border-color:var(--acc)":"")+'">'+esc(t1)+'</button>'
+            + '<button data-act="colBool" data-v="'+r.code+'" data-b="false" style="'+(raw==="false"?"background:var(--acc);color:var(--on-acc);border-color:var(--acc)":"")+'">'+esc(f1)+'</button>'
+            + '</div>';
+        } else {
+          ctl = '<input data-colf="'+r.code+'" value="'+esc(raw)+'" style="max-width:160px" placeholder="'+(r.dataType==="TEXT"?"":(r.min!=null?r.min+"–"+r.max:""))+'">';
+        }
+        return '<tr><td>'+esc(name)+(r.required?' <span style="color:var(--err)">*</span>':'')+
+          '<div class="kick" style="margin-top:2px">'+esc(r.unit||"")+'</div></td>'
+          + '<td>'+ctl+'</td>'
+          + '<td><span class="pill '+badge[0]+'">'+esc(badge[1])+'</span></td></tr>';
+      }).join("") + '</tbody></table></div></div>'
+    + '<div class="field" style="max-width:900px;margin-top:16px"><label>'+T("obs")+'</label>'
+    + '<textarea id="colNote" maxlength="400" placeholder="'+T("obsPh")+'">'+esc(S.colNote)+'</textarea></div>'
+    + '<button class="btn-primary" data-act="colSave" style="margin-top:6px">'+T("saveReading")+'</button>';
+
+  return body;
+}
+
+/* ── Dashboard ────────────────────────────────────────────────────────── */
+function dashboardView(){
+  var c = C.counts();
+  var tiles = [
+    ["kSites", c.site, "site"], ["kGroups", c.group, "group"],
+    ["kEquipment", c.equipment, "equipment"], ["kParameters", c.parameter, "parameter"],
+    ["kUnits", c.unit, "unit"], ["kAssignments", c.equipmentParameter, "equipmentParameter"],
+    ["kUsers", c.user, "user"], ["kRecords", c.record, null]
+  ];
+  var steps = [
+    ["equipmentType", c.equipmentType], ["area", c.area], ["group", c.group],
+    ["equipment", c.equipment], ["unit", c.unit], ["parameter", c.parameter],
+    ["equipmentParameter", c.equipmentParameter], ["schedule", c.schedule], ["user", c.user - 1]
+  ];
+  return '<div class="h1">'+T("dashTitle")+'</div>'
+    + '<div class="note" style="margin:5px 0 18px">'+T("dashSub")+'</div>'
+    + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:24px">'
+    + tiles.map(function(t){
+        return '<div'+(t[2]?' style="cursor:pointer" data-act="go" data-v="'+t[2]+'"':'')+'>'
+          + '<div class="kick">'+T(t[0])+'</div>'
+          + '<div style="margin-top:7px;font:600 30px/1 var(--head);color:'+(t[1]?"var(--ink)":"var(--disabled)")+'">'
+          + N(t[1]) + '</div></div>';
+      }).join("")
+    + '</div>'
+    + dashboardCharts()
+    + '<div class="kick" style="margin-bottom:8px">'+T("setupTitle")+'</div>'
+    + '<div class="note" style="margin-bottom:11px">'+T("setupSub")+'</div>'
+    + '<div class="tf"><div class="tablewrap"><table><tbody>'
+    + steps.map(function(st, i){
+        var ok = st[1] > 0;
+        return '<tr><td style="width:52px" class="mono">'+N("0"+(i+1))+'</td>'
+          + '<td>'+esc(entityLabel(st[0]))+'</td>'
+          + '<td style="text-align:end;width:110px" class="mono">'+N(Math.max(0,st[1]))+'</td>'
+          + '<td style="text-align:end;width:110px"><span class="pill '+(ok?"ok":"off")+'">'
+          + (ok?T("done"):T("todo"))+'</span></td>'
+          + '<td style="text-align:end;width:110px">'
+          + '<button data-act="go" data-v="'+st[0]+'">'+T("openStep")+'</button></td></tr>';
+      }).join("")
+    + '</tbody></table></div></div>';
+}
+
+/* Two small inline-SVG charts from real data — no charting library. */
+function dashboardCharts(){
+  var eqs = C.list("equipment", { status:"ACTIVE" });
+  if (!eqs.length) return "";
+  var today = new Date().toDateString();
+  var recs = C.list("record");
+  var doneIds = {};
+  recs.forEach(function(r){ if (new Date(r.submittedAt||r.createdAt).toDateString()===today) doneIds[r.equipmentId]=1; });
+  var completed = eqs.filter(function(e){ return doneIds[e.id]; }).length;
+  var missing = eqs.length - completed;
+  var barW = eqs.length ? Math.round(completed/eqs.length*100) : 0;
+
+  var sites = C.list("site", { status:"ACTIVE" });
+  var abBySite = sites.map(function(s){
+    var eqIds = {}; eqs.filter(function(e){return e.siteId===s.id;}).forEach(function(e){eqIds[e.id]=1;});
+    var n = 0;
+    recs.filter(function(r){return eqIds[r.equipmentId];}).forEach(function(r){
+      (r.readings||[]).forEach(function(rd){ if (rd.validationStatus==="ABNORMAL"||rd.validationStatus==="CRITICAL") n++; });
+    });
+    return { label: s.siteCode, n: n };
+  });
+  var maxAb = Math.max(1, Math.max.apply(null, abBySite.map(function(x){return x.n;})));
+
+  return '<div class="grid" style="grid-template-columns:1.4fr 1fr;margin-bottom:24px;align-items:stretch">'
+    + '<div>'
+      + '<div class="kick" style="margin-bottom:10px">'+T("chartTitle")+'</div>'
+      + '<div style="height:14px;background:var(--line);border-radius:7px;overflow:hidden;display:flex">'
+        + '<div style="width:'+barW+'%;background:var(--acc);height:100%"></div></div>'
+      + '<div class="row" style="justify-content:space-between;margin-top:9px">'
+        + '<span class="mono" style="color:var(--acc)">● '+T("chartCompleted")+' — '+N(completed)+'</span>'
+        + '<span class="mono" style="color:var(--muted)">● '+T("chartMissing")+' — '+N(missing)+'</span>'
+      + '</div></div>'
+    + '<div>'
+      + '<div class="kick" style="margin-bottom:10px">'+T("chartAbnormalTitle")+'</div>'
+      + '<svg viewBox="0 0 220 90" width="100%" height="90" preserveAspectRatio="xMinYMid meet">'
+        + abBySite.map(function(x,i){
+            var bw = 46, gap = 20, x0 = 8 + i*(bw+gap);
+            var h = Math.round(x.n/maxAb*60);
+            return '<g>'
+              + '<rect x="'+x0+'" y="'+(70-h)+'" width="'+bw+'" height="'+Math.max(h,1)+'" fill="'+(x.n?"var(--warn)":"var(--line)")+'"/>'
+              + '<text x="'+(x0+bw/2)+'" y="82" font-size="10" text-anchor="middle" fill="var(--muted)" font-family="var(--mono)">'+esc(x.label)+'</text>'
+              + '<text x="'+(x0+bw/2)+'" y="'+(70-h-4)+'" font-size="10" text-anchor="middle" fill="var(--ink)" font-family="var(--mono)">'+N(x.n)+'</text>'
+              + '</g>';
+          }).join("")
+      + '</svg></div>'
+    + '</div>';
+}
+
+/* ── Master-data table ────────────────────────────────────────────────── */
+function tableView(entity){
+  var def = C.schema[entity];
+  if (!def) return '<div class="empty">Unknown view</div>';
+  var all = C.list(entity, { siteId: S.site });
+  var rows = C.list(entity, { siteId: S.site, q: S.q, status: S.statusFilter });
+  var cols = columnsFor(entity);
+
+  var head = '<div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">'
+    + '<div><div class="h1">'+esc(entityLabel(entity))+'</div>'
+    + '<div class="note" style="margin-top:4px">'+esc(def.table)+'</div></div>'
+    + '<div class="row" style="gap:8px">'
+    +   '<div class="exportRow">'
+    +     '<button data-act="exportCsv" data-v="'+entity+'" title="Excel (.csv)">'+T("exportExcel")+'</button>'
+    +     '<button data-act="exportWord" data-v="'+entity+'" title="Word (.doc)">'+T("exportWord")+'</button>'
+    +     '<button data-act="exportPdf" data-v="'+entity+'" title="PDF">'+T("exportPdf")+'</button>'
+    +   '</div>'
+    +   '<button class="btn-primary" data-act="new" data-v="'+entity+'">'+T("create")+'</button>'
+    + '</div></div>';
+
+  var filters = '<div class="row" style="flex-wrap:wrap;gap:9px;margin-bottom:13px">'
+    + '<input id="q" value="'+esc(S.q)+'" placeholder="'+T("search")+'" style="max-width:280px;height:36px">'
+    + '<select data-act="status" style="width:auto;height:36px">'
+    +   '<option value="ALL"'+(S.statusFilter==="ALL"?" selected":"")+'>'+T("statusAll")+'</option>'
+    +   '<option value="ACTIVE"'+(S.statusFilter==="ACTIVE"?" selected":"")+'>'+T("statusActive")+'</option>'
+    +   '<option value="INACTIVE"'+(S.statusFilter==="INACTIVE"?" selected":"")+'>'+T("statusInactive")+'</option>'
+    + '</select>'
+    + (S.q ? '<button data-act="clearq">'+T("clearSearch")+'</button>' : '')
+    + '<span class="kick" style="margin-inline-start:auto">'+T("showing",{n:N(rows.length),total:N(all.length)})+'</span>'
+    + '</div>';
+
+  if (!all.length) return head + filters + '<div class="empty">'
+    + '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5">'
+    + '<rect x="3" y="4" width="18" height="16"/><line x1="3" y1="9" x2="21" y2="9"/></svg>'
+    + '<div class="h2">'+T("noRows")+'</div><div class="note">'+T("noRowsSub")+'</div>'
+    + '<button class="btn-primary" data-act="new" data-v="'+entity+'">'+T("create")+'</button></div>';
+
+  if (!rows.length) return head + filters + '<div class="empty">'
+    + '<div class="h2">'+T("noMatch")+'</div>'
+    + '<button data-act="clearq">'+T("clearSearch")+'</button></div>';
+
+  var body = rows.map(function(r){
+    var refs = C.references(entity, r.id).total;
+    var locked = r.isSystem || refs > 0;
+    return '<tr>'
+      + cols.map(function(f){
+          var style = f.width ? ' style="width:'+f.width+'px"' : '';
+          var cls = (f.k===def.key) ? ' class="mono" style="color:var(--acc)"' : (f.type==="number"||f.k==="nfcTagId" ? ' class="mono"' : '');
+          return '<td'+(cls||style)+'>'+esc(cellText(entity, r, f))+'</td>';
+        }).join("")
+      + '<td style="text-align:end"><span class="pill '+(r.status==="ACTIVE"?"ok":"off")+'">'
+      +   (r.status==="ACTIVE"?T("statusActive"):T("statusInactive"))+'</span></td>'
+      + '<td style="text-align:end;white-space:nowrap">'
+      +   '<button data-act="edit" data-e="'+entity+'" data-v="'+r.id+'">'+T("edit")+'</button> '
+      +   '<button data-act="toggle" data-e="'+entity+'" data-v="'+r.id+'"'+(r.isSystem?' disabled title="'+T("system")+'"':'')+'>'
+      +     (r.status==="ACTIVE"?T("deactivate"):T("activate"))+'</button> '
+      +   '<button class="btn-danger" data-act="del" data-e="'+entity+'" data-v="'+r.id+'"'
+      +     (r.isSystem?' disabled title="'+T("system")+'"':'')+'>'+T("del")+'</button>'
+      + '</td></tr>';
+  }).join("");
+
+  return head + filters
+    + '<div class="tf"><div class="tablewrap"><table id="dataTable"><thead><tr>'
+    + cols.map(function(f){ return '<th>'+esc(fieldLabel(f).toUpperCase())+'</th>'; }).join("")
+    + '<th style="text-align:end">'+T("status")+'</th>'
+    + '<th style="text-align:end;width:230px">'+T("actions")+'</th>'
+    + '</tr></thead><tbody>'+body+'</tbody></table></div></div>'
+    + '<div class="row" style="justify-content:flex-end;margin-top:10px">'
+    +   '<div class="exportRow">'
+    +     '<button data-act="exportCsv" data-v="'+entity+'">'+T("exportExcel")+'</button>'
+    +     '<button data-act="exportWord" data-v="'+entity+'">'+T("exportWord")+'</button>'
+    +     '<button data-act="exportPdf" data-v="'+entity+'">'+T("exportPdf")+'</button>'
+    +   '</div></div>';
+}
+
+/* ── Create / edit form ───────────────────────────────────────────────── */
+function visible(f, values){
+  if (f.k === "normalMinOverride" || f.k === "normalMaxOverride") {
+    var p = values.parameterId ? C.get("parameter", values.parameterId) : null;
+    return !!p && p.dataType === "NUMERIC";
+  }
+  if (f.k === "expectedBoolOverride") {
+    var p2 = values.parameterId ? C.get("parameter", values.parameterId) : null;
+    return !!p2 && p2.dataType === "BOOLEAN";
+  }
+  if (f.k === "photoPolicyOverride") {
+    var p3 = values.parameterId ? C.get("parameter", values.parameterId) : null;
+    return !p3 || p3.photoPolicy !== "DISABLED";
+  }
+  if (!f.showWhen) return true;
+  return Object.keys(f.showWhen).every(function(k){ return values[k] === f.showWhen[k]; });
+}
+
+function formView(){
+  if (!S.form) return "";
+  var F = S.form, def = C.schema[F.entity], v = F.values, errs = F.errors || {};
+  var title = F.id ? T("editTitle",{entity:entityLabel(F.entity)}) : T("createTitle",{entity:entityLabel(F.entity)});
+
+  var fields = def.fields.filter(function(f){ return visible(f, v); }).map(function(f){
+    var val = v[f.k];
+    var e = errs[f.k];
+    var full = (f.type==="textarea"||f.type==="permissions"||f.type==="sites") ? " full" : "";
+    var pRef = v.parameterId ? C.get("parameter", v.parameterId) : null;
+    var isRequired = f.required
+      || (f.k === "normalMinOverride" || f.k === "normalMaxOverride" ? (pRef && pRef.dataType === "NUMERIC") : false)
+      || (f.k === "expectedBoolOverride" ? (pRef && pRef.dataType === "BOOLEAN") : false)
+      || (f.requiredWhen && Object.keys(f.requiredWhen).every(function(k){ return v[k]===f.requiredWhen[k]; }));
+    var ctl;
+
+    if (f.type === "ref") {
+      var opts = C.list(f.ref, { status: "ACTIVE" });
+      // Keep an already-selected inactive reference visible when editing.
+      if (val && !opts.some(function(o){ return o.id===val; })) {
+        var cur = C.get(f.ref, val); if (cur) opts = [cur].concat(opts);
+      }
+      ctl = '<select data-f="'+f.k+'">'
+        + '<option value="">'+(isRequired?"—":T("none"))+'</option>'
+        + opts.map(function(o){ return '<option value="'+o.id+'"'+(val===o.id?" selected":"")+'>'
+            + esc(C.labelOf(f.ref, o))+'</option>'; }).join("")
+        + '</select>';
+      if (!opts.length) ctl += '<div class="note" style="margin-top:4px">'
+        + esc(entityLabel(f.ref)) + ': ' + T("noRows").toLowerCase() + '</div>';
+    } else if (f.type === "enum") {
+      ctl = '<select data-f="'+f.k+'">' + f.options.map(function(o){
+        return '<option value="'+o+'"'+(String(val)===o?" selected":"")+'>'+(o||T("none"))+'</option>'; }).join("")
+        + '</select>';
+    } else if (f.type === "bool") {
+      ctl = '<select data-f="'+f.k+'">'
+        + '<option value="true"'+(val?" selected":"")+'>'+T("yes")+'</option>'
+        + '<option value="false"'+(!val?" selected":"")+'>'+T("no")+'</option></select>';
+    } else if (f.type === "textarea") {
+      ctl = '<textarea data-f="'+f.k+'">'+esc(val||"")+'</textarea>';
+    } else if (f.type === "password") {
+      ctl = '<input type="password" data-f="'+f.k+'" value="'+esc(val||"")+'" autocomplete="new-password">';
+    } else if (f.type === "permissions") {
+      var have = Array.isArray(val) ? val : [];
+      var ACTS = ["view","create","edit","delete","export","run"];
+      ctl = '<div class="permtree">' + C.permTree.map(function(g){
+        var codes = [];
+        g.nodes.forEach(function(n){ n.acts.forEach(function(x){ codes.push(n.key+"."+x); }); });
+        var on = codes.filter(function(x){ return have.indexOf(x) >= 0; }).length;
+        return '<div class="permgroup">'
+          + '<div class="permgroup-head">'
+          +   '<b>'+esc(lang()==="fa"?g.groupFa:g.group)+'</b>'
+          +   '<span class="permcount">'+N(on)+'/'+N(codes.length)+'</span>'
+          +   '<button type="button" class="permall" data-permgroup="'+esc(g.group)+'">'
+          +     (on===codes.length?T("clearAll"):T("selectAll"))+'</button>'
+          + '</div>'
+          + '<div class="permgroup-body">'
+          +   '<div class="permhead"><span></span>'
+          +   ACTS.map(function(x){ return '<span>'+esc(lang()==="fa"?C.actLabel[x].fa:C.actLabel[x].en)+'</span>'; }).join("")
+          +   '</div>'
+          +   g.nodes.map(function(n){
+                return '<div class="permrow"><span class="plabel">'
+                  + esc(lang()==="fa"?n.labelFa:n.label)+'</span>'
+                  + ACTS.map(function(x){
+                      if (n.acts.indexOf(x) < 0) return '<span class="pcell pna">·</span>';
+                      var code = n.key+"."+x;
+                      return '<span class="pcell"><input type="checkbox" data-perm="'+code+'"'
+                        + (have.indexOf(code)>=0?" checked":"")+' title="'+esc(code)+'"></span>';
+                    }).join("")
+                  + '</div>';
+              }).join("")
+          + '</div></div>';
+      }).join("") + '</div>';
+    } else if (f.type === "photo") {
+      ctl = '<div class="row">'
+        + '<div class="photoBox" id="photoPreview">'
+        + (val ? '<img src="'+val+'">' : '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4.2"/></svg>')
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px">'
+        +   '<input type="file" accept="image/*" data-photo="'+f.k+'" style="width:auto;height:auto;border:0;padding:0">'
+        +   '<span class="note" style="margin:0">'+T("photoHint")+'</span>'
+        + '</div></div>'
+        + '<input type="hidden" data-f="'+f.k+'" value="'+esc(val||"")+'">';
+    } else if (f.type === "sites") {
+      var sel = val === "ALL" ? "ALL" : (Array.isArray(val)?val:[]);
+      ctl = '<label style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13px">'
+        + '<input type="checkbox" data-allsites'+(sel==="ALL"?" checked":"")+' style="width:15px;height:15px">'
+        + '<span>'+T("siteAccessAll")+'</span></label>'
+        + '<div class="checks">' + C.list("site").map(function(st){
+            return '<label><input type="checkbox" data-site="'+st.id+'"'
+              + (sel!=="ALL" && sel.indexOf(st.id)>=0?" checked":"")+(sel==="ALL"?" disabled":"")+'>'
+              + '<span>'+esc(st.siteCode+" — "+(lang()==="fa"?st.nameFa:st.nameEn))+'</span></label>'; }).join("")
+        + '</div>';
+    } else {
+      ctl = '<input data-f="'+f.k+'" value="'+esc(val==null?"":val)+'"'
+        + (f.type==="number"?' inputmode="decimal"':'')+'>';
+    }
+
+    return '<div class="field'+full+(e?" bad":"")+'">'
+      + '<label>'+esc(fieldLabel(f))+(isRequired?' <span style="color:var(--err)">*</span>':'')+'</label>'
+      + ctl
+      + (e ? '<div class="err">'+esc(lang()==="fa"?e.fa:e.en)+'</div>' : '')
+      + (f.hint && !e ? '<div class="note" style="margin-top:4px;font-size:11.5px">'+esc(f.hint)+'</div>' : '')
+      + '</div>';
+  }).join("");
+
+  return '<div class="modal" data-act="backdrop"><div class="sheet bp" onclick="event.stopPropagation()">'
+    + '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>'
+    + '<div class="h2" style="margin-bottom:4px">'+esc(title)+'</div>'
+    + '<div class="note" style="margin-bottom:16px">'+esc(def.table)+'</div>'
+    + (F.topError ? '<div class="field bad"><div class="err" style="font-size:13px">'+esc(F.topError)+'</div></div>' : '')
+    + '<div class="fieldgrid">'+fields+'</div>'
+    + '<div class="row" style="justify-content:flex-end;margin-top:16px">'
+    +   '<button data-act="closeform">'+T("cancel")+'</button>'
+    +   '<button class="btn-primary" data-act="submit">'+T("save")+'</button>'
+    + '</div></div></div>';
+}
+
+function confirmView(){
+  if (!S.confirm) return "";
+  var c = S.confirm;
+  return '<div class="modal" data-act="backdrop"><div class="sheet narrow bp" onclick="event.stopPropagation()">'
+    + '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>'
+    + '<div class="h2">'+esc(c.title)+'</div>'
+    + '<div class="note" style="margin-top:8px">'+esc(c.body)+'</div>'
+    + '<div class="row" style="justify-content:flex-end;margin-top:18px">'
+    +   '<button data-act="closeconfirm">'+T("cancel")+'</button>'
+    +   '<button class="'+(c.danger?"btn-danger":"btn-primary")+'" data-act="yes">'+esc(c.yesLabel)+'</button>'
+    + '</div></div></div>';
+}
+
+function infoView(){
+  if (!S.info) return "";
+  var i = S.info;
+  return '<div class="modal" data-act="backdrop"><div class="sheet narrow bp" onclick="event.stopPropagation()">'
+    + '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>'
+    + '<div class="mono" style="color:var(--err)">ERR 409 · REFERENCED_CANNOT_DELETE</div>'
+    + '<div class="h2" style="margin-top:8px">'+esc(i.title)+'</div>'
+    + '<div class="note" style="margin-top:8px">'+esc(i.body)+'</div>'
+    + '<div style="margin-top:14px;border:1px solid var(--line);padding:11px 13px">'
+    + (i.rows||[]).map(function(r){
+        return '<div class="row" style="justify-content:space-between;padding:3px 0;font-size:12.5px">'
+          + '<span style="color:var(--muted)">'+esc(r[0])+'</span><span class="mono">'+esc(r[1])+'</span></div>';
+      }).join("")
+    + '</div>'
+    + '<div class="row" style="justify-content:flex-end;margin-top:18px">'
+    +   '<button data-act="closeinfo">'+T("close")+'</button>'
+    +   '<button class="btn-primary" data-act="deactivateFromInfo">'+T("deactivate")+'</button>'
+    + '</div></div></div>';
+}
+
+function auditView(){
+  var rows = C.auditLog(200);
+  return '<div class="h1">'+T("auditTitle")+'</div>'
+    + '<div class="note" style="margin:5px 0 16px">'+T("auditSub")+'</div>'
+    + (rows.length ? '<div class="tf"><div class="tablewrap"><table><thead><tr>'
+      + '<th>'+T("when")+'</th><th>'+T("actor")+'</th><th>'+T("action")+'</th>'
+      + '<th>'+T("entity")+'</th><th>'+T("detail")+'</th></tr></thead><tbody>'
+      + rows.map(function(a){
+          return '<tr><td class="mono">'+esc(new Date(a.at).toLocaleString())+'</td>'
+            + '<td>'+esc(a.actor)+'</td>'
+            + '<td class="mono" style="color:var(--acc)">'+esc(a.action)+'</td>'
+            + '<td>'+esc(a.entity?entityLabel(a.entity):"—")+'</td>'
+            + '<td class="note" style="max-width:340px">'+esc((a.after||"").slice(0,120))+'</td></tr>';
+        }).join("")
+      + '</tbody></table></div></div>'
+      : '<div class="empty"><div class="h2">'+T("noRows")+'</div></div>');
+}
+
+function settingsView(){
+  return '<div class="h1">'+T("settingsTitle")+'</div>'
+    + '<div class="note" style="margin:5px 0 18px">'+T("settingsSub")+'</div>'
+    + '<div class="bp" style="padding:15px;max-width:620px;margin-bottom:18px">'
+    + '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>'
+    + '<div class="field" style="margin:0"><label>'+T("serverUrl")+'</label>'
+    + '<input id="srv" value="'+esc(localStorage.getItem("sepehran.serverUrl")||"http://192.168.10.20:8080/api/v1")+'">'
+    + '<div class="note" style="margin-top:6px">'+T("serverUrlNote")+'</div></div>'
+    + '<div class="row" style="margin-top:12px"><button class="btn-primary" data-act="saveSrv">'+T("save")+'</button></div>'
+    + '</div>'
+    + '<div class="bp" style="padding:15px;max-width:620px;margin-bottom:18px">'
+    + '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>'
+    + '<div class="h2">Import real Excel data · ورود اطلاعات واقعی اکسل</div>'
+    + '<div class="note" style="margin-top:6px">Site 049, areas, equipment types, units (classified), groups and 139 equipment — from the workbook you uploaded. Safe to click more than once; anything already present is skipped.</div>'
+    + '<div class="row" style="margin-top:12px"><button class="btn-primary" data-act="importReal">Import now · ورود اطلاعات</button></div>'
+    + '</div>'
+    + '<div class="tf" style="padding:15px;max-width:620px;margin-bottom:18px">'
+    + '<div class="h2">'+T("importWb")+'</div>'
+    + '<div class="note" style="margin-top:6px">'+T("importWbNote")+'</div>'
+    + '<div class="row" style="margin-top:13px">'
+    +   '<button class="btn-primary" data-act="importWb">'+T("importWbBtn")+'</button>'
+    + '</div></div>'
+    + '<div class="tf" style="padding:15px;max-width:620px;border-color:var(--err)">'
+    + '<div class="h2" style="color:var(--err)">'+T("resetTitle")+'</div>'
+    + '<div class="note" style="margin-top:6px">'+T("resetNote")+'</div>'
+    + '<div class="row" style="margin-top:13px">'
+    +   '<button class="btn-danger" data-act="reset">'+T("resetBtn")+'</button>'
+    +   '<button data-act="export">'+T("exportBtn")+'</button>'
+    + '</div></div>';
+}
+
+/* ── Event wiring ─────────────────────────────────────────────────────── */
+function wire(){
+  root.querySelectorAll("[data-act]").forEach(function(el){
+    el.addEventListener("click", function(ev){
+      var act = el.getAttribute("data-act");
+      if (act === "backdrop" && ev.target !== el) return;
+      handle(act, el.getAttribute("data-v"), el.getAttribute("data-e"), el, ev);
+    });
+  });
+  var q = root.querySelector("#q");
+  if (q) {
+    q.addEventListener("input", function(){ S.q = q.value; render();
+      var n = root.querySelector("#q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } });
+  }
+  var colQ = root.querySelector("#colQ");
+  if (colQ) {
+    colQ.addEventListener("input", function(){ S.colQ = colQ.value; render();
+      var n = root.querySelector("#colQ"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } });
+  }
+  var sel = root.querySelector('[data-act="status"]');
+  if (sel) sel.addEventListener("change", function(){ S.statusFilter = sel.value; render(); });
+  var siteSel = root.querySelector("#siteSel");
+  if (siteSel) siteSel.addEventListener("change", function(){ S.site = siteSel.value; render(); });
+
+  /* Form inputs write straight into the draft so conditional fields react. */
+  root.querySelectorAll("[data-f]").forEach(function(el){
+    var k = el.getAttribute("data-f");
+    var handler = function(){
+      var f = C.schema[S.form.entity].fields.filter(function(x){ return x.k===k; })[0];
+      var val = el.value;
+      if (f && f.type === "bool") val = (val === "true");
+      S.form.values[k] = val;
+      if (S.form.entity === "equipmentParameter" && k === "parameterId") render();
+      else if (f && (f.type === "enum" || f.type === "ref")) render();   // may reveal/hide fields
+    };
+    el.addEventListener(el.tagName === "SELECT" ? "change" : "input", handler);
+  });
+  root.querySelectorAll("[data-perm]").forEach(function(el){
+    el.addEventListener("change", function(){
+      var cur = Array.isArray(S.form.values.permissions) ? S.form.values.permissions.slice() : [];
+      var p = el.getAttribute("data-perm");
+      var i = cur.indexOf(p);
+      if (el.checked && i < 0) cur.push(p);
+      if (!el.checked && i >= 0) cur.splice(i, 1);
+      S.form.values.permissions = cur;
+      render();
+    });
+  });
+  root.querySelectorAll("[data-permgroup]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var gName = el.getAttribute("data-permgroup");
+      var g = C.permTree.filter(function(x){ return x.group === gName; })[0];
+      if (!g) return;
+      var codes = [];
+      g.nodes.forEach(function(n){ n.acts.forEach(function(x){ codes.push(n.key+"."+x); }); });
+      var cur = Array.isArray(S.form.values.permissions) ? S.form.values.permissions.slice() : [];
+      var allOn = codes.every(function(x){ return cur.indexOf(x) >= 0; });
+      if (allOn) cur = cur.filter(function(x){ return codes.indexOf(x) < 0; });
+      else codes.forEach(function(x){ if (cur.indexOf(x) < 0) cur.push(x); });
+      S.form.values.permissions = cur;
+      render();
+    });
+  });
+  var allSites = root.querySelector("[data-allsites]");
+  if (allSites) allSites.addEventListener("change", function(){
+    S.form.values.siteAccess = allSites.checked ? "ALL" : [];
+    render();
+  });
+  root.querySelectorAll("[data-site]").forEach(function(el){
+    el.addEventListener("change", function(){
+      var cur = Array.isArray(S.form.values.siteAccess) ? S.form.values.siteAccess.slice() : [];
+      var id = el.getAttribute("data-site"), i = cur.indexOf(id);
+      if (el.checked && i < 0) cur.push(id);
+      if (!el.checked && i >= 0) cur.splice(i, 1);
+      S.form.values.siteAccess = cur;
+    });
+  });
+  root.querySelectorAll("[data-colf]").forEach(function(el){
+    el.addEventListener("input", function(){
+      S.colValues[el.getAttribute("data-colf")] = el.value.replace(/[^0-9.\-a-zA-Z\u0600-\u06FF ]/g, function(c){ return /[0-9.\-]/.test(c)?c:c; });
+      S.colValues[el.getAttribute("data-colf")] = el.value;
+      var pos = el.selectionStart;
+      render();
+      var again = root.querySelector('[data-colf="'+el.getAttribute("data-colf")+'"]');
+      if (again) { again.focus(); try{ again.setSelectionRange(pos,pos); }catch(e){} }
+    });
+  });
+  var colNoteEl = root.querySelector("#colNote");
+  if (colNoteEl) colNoteEl.addEventListener("input", function(){ S.colNote = colNoteEl.value; });
+  var lu = root.querySelector("#lu");
+  if (lu) lu.addEventListener("keydown", function(e){ if (e.key === "Enter") handle("login"); });
+  var lp = root.querySelector("#lp");
+  if (lp) lp.addEventListener("keydown", function(e){ if (e.key === "Enter") handle("login"); });
+}
+
+function handle(act, v, e, el, ev){
+  switch (act) {
+    case "login": {
+      var u = root.querySelector("#lu").value, p = root.querySelector("#lp").value;
+      try {
+        var s = C.login(u, p);
+        S.view = "dashboard"; render();
+        if (s.mustChangePassword) toast(T("mustChange"), "err");
+        else toast(T("signIn") + " ✓", "ok");
+      } catch (err) {
+        root.querySelector("#loginErr").innerHTML =
+          '<div class="field bad"><div class="err" style="font-size:13px">'
+          + esc(lang()==="fa"?err.messageFa:err.message)+'</div></div>';
+      }
+      break;
+    }
+    case "logout": C.logout(); S.view = "dashboard"; render(); break;
+    case "lang": C.lang(lang()==="fa"?"en":"fa"); render(); break;
+    case "theme": C.theme(C.theme()==="dark"?"light":"dark"); render(); break;
+    case "nav": S.navOpen = !S.navOpen; render(); break;
+    case "go": S.view = v; S.q = ""; S.statusFilter = "ALL"; S.navOpen = false; render(); break;
+    case "clearq": S.q = ""; render(); break;
+    case "colClearq": S.colQ = ""; render(); break;
+
+    case "new": {
+      var def = C.schema[v], values = {};
+      def.fields.forEach(function(f){
+        values[f.k] = f.def !== undefined ? f.def
+          : (f.type === "permissions" ? [] : (f.type === "sites" ? [] : ""));
+      });
+      if (S.site !== "ALL" && def.fields.some(function(f){ return f.k === "siteId"; })) values.siteId = S.site;
+      S.form = { entity: v, id: null, values: values, errors: null };
+      render(); break;
+    }
+    case "edit": {
+      var row = C.get(e, v), vals = {};
+      C.schema[e].fields.forEach(function(f){
+        vals[f.k] = f.type === "password" ? "" : (row[f.k] !== undefined ? row[f.k] : "");
+      });
+      S.form = { entity: e, id: v, values: vals, errors: null };
+      render(); break;
+    }
+    case "closeform": case "backdrop": S.form = null; S.confirm = null; S.info = null; render(); break;
+    case "closeconfirm": S.confirm = null; render(); break;
+    case "closeinfo": S.info = null; render(); break;
+
+    case "submit": {
+      var F = S.form;
+      try {
+        if (F.id) { C.update(F.entity, F.id, F.values); toast(T("updated",{entity:entityLabel(F.entity)})); }
+        else { C.create(F.entity, F.values); toast(T("created",{entity:entityLabel(F.entity)})); }
+        S.form = null; render();
+      } catch (err) {
+        if (err.code === "VALIDATION") { F.errors = err.details; F.topError = null; }
+        else { F.topError = lang()==="fa" ? err.messageFa : err.message; }
+        render();
+      }
+      break;
+    }
+
+    case "toggle": {
+      var r = C.get(e, v);
+      if (r.status === "ACTIVE") {
+        S.confirm = { title: T("confirmDeactivate"),
+          body: T("confirmDeactivateBody", { name: C.labelOf(e, r) }),
+          yesLabel: T("deactivate"), danger: false,
+          onYes: function(){
+            try { C.setStatus(e, v, "INACTIVE"); toast(T("deactivated")); }
+            catch (err) { toast(lang()==="fa"?err.messageFa:err.message, "err"); }
+          } };
+        render();
+      } else {
+        try { C.setStatus(e, v, "ACTIVE"); toast(T("activated")); render(); }
+        catch (err) { toast(lang()==="fa"?err.messageFa:err.message, "err"); }
+      }
+      break;
+    }
+
+    case "del": {
+      var row2 = C.get(e, v);
+      var refs = C.references(e, v);
+      if (refs.total > 0) {
+        S.info = {
+          title: T("cannotDelete", { name: C.labelOf(e, row2) }),
+          body: T("cannotDeleteBody"),
+          rows: refs.detail.map(function(d){
+            return [entityLabel(d.entity) + " · " + d.column, N(d.count)];
+          }).concat([[T("referencesFound"), N(refs.total)], [T("rule"), "SEPEHRAN_NO_HARD_DELETE"]]),
+          entity: e, id: v
+        };
+        render();
+      } else {
+        S.confirm = { title: T("confirmDelete"),
+          body: T("confirmDeleteBody", { name: C.labelOf(e, row2) }),
+          yesLabel: T("del"), danger: true,
+          onYes: function(){
+            try { C.remove(e, v); toast(T("deleted",{entity:entityLabel(e)})); }
+            catch (err) { toast(lang()==="fa"?err.messageFa:err.message, "err"); }
+          } };
+        render();
+      }
+      break;
+    }
+
+    case "deactivateFromInfo": {
+      var i = S.info;
+      try { C.setStatus(i.entity, i.id, "INACTIVE"); toast(T("deactivated")); }
+      catch (err) { toast(lang()==="fa"?err.messageFa:err.message, "err"); }
+      S.info = null; render(); break;
+    }
+
+    case "yes": { var fn = S.confirm.onYes; S.confirm = null; fn(); render(); break; }
+
+    case "colOpen": S.colEquip = v; S.colValues = {}; S.colNote = ""; S.colGuard = null; render(); break;
+    case "colBack": S.colEquip = null; render(); break;
+    case "colBool": S.colValues[v] = el.getAttribute("data-b"); render(); break;
+    case "colSave": {
+      var eqc = C.get("equipment", S.colEquip);
+      var rowsc = C.parametersFor(eqc.id);
+      var missing = rowsc.some(function(r){ return r.required && collectionValidate(S.colValues[r.code], r) === "NOT_ENTERED"; });
+      if (missing) { S.colGuard = T("fillRequired"); render(); break; }
+      var readings = rowsc.filter(function(r){ return collectionValidate(S.colValues[r.code], r) !== "NOT_ENTERED"; })
+        .map(function(r){ return {
+          parameterCode: r.code, parameterId: r.parameterId, equipmentParameterId: r.equipmentParameterId,
+          rawValue: S.colValues[r.code], numericValue: r.dataType==="NUMERIC"?Number(S.colValues[r.code]):null,
+          boolValue: r.dataType==="BOOLEAN"?(S.colValues[r.code]==="true"):null,
+          unitSymbol: r.unit, normalMin: r.min, normalMax: r.max,
+          validationStatus: collectionValidate(S.colValues[r.code], r), recordedAt: Date.now()
+        }; });
+      C.saveRecord({ equipmentId: eqc.id, equipmentTag: eqc.tagNumber, siteId: eqc.siteId, observation: S.colNote, readings: readings });
+      toast(T("savedReading"));
+      S.colEquip = null; S.colValues = {}; S.colNote = ""; S.colGuard = null;
+      render(); break;
+    }
+    case "saveSrv": {
+      localStorage.setItem("sepehran.serverUrl", root.querySelector("#srv").value.trim());
+      toast(T("updated",{entity:T("serverUrl")}));
+      break;
+    }
+    case "importReal": {
+      fetch("real-import-data.json").then(function(r){ return r.json(); }).then(function(p){
+        var made = C.importRealData(p);
+        toast("Imported: " + made.areas + " areas, " + made.types + " types, " + made.units + " units, " +
+              made.groups + " groups, " + made.equipment + " equipment (" + made.skippedTags.length + " already existed).");
+        render();
+      }).catch(function(err){ toast("Import failed: " + err.message, "err"); });
+      break;
+    }
+    case "importWb": {
+      S.confirm = { title: T("importWbConfirm"), body: T("importWbConfirmBody"),
+        yesLabel: T("importWbBtn"), danger: true,
+        onYes: function(){
+          fetch("excel-master.json").then(function(r){ return r.json(); }).then(function(wb){
+            var made = C.importWorkbook(wb);
+            toast(T("importWbDone", { eq:N(made.equipment), pa:N(made.parameters), un:N(made.units),
+                                      gr:N(made.groups), ar:N(made.areas), ty:N(made.types) }));
+            if (made.warnings.length)
+              setTimeout(function(){ toast(T("importWbWarn", { n:N(made.warnings.length) }), "err"); }, 3400);
+            S.view = "dashboard"; render();
+          }).catch(function(err){ toast(String(err.message||err), "err"); });
+        } };
+      render(); break;
+    }
+    case "reset": {
+      S.confirm = { title: T("resetConfirm"), body: T("resetConfirmBody"),
+        yesLabel: T("resetBtn"), danger: true,
+        onYes: function(){ C.resetToCleanBase(); S.view = "dashboard"; toast(T("resetDone")); } };
+      render(); break;
+    }
+    case "export": {
+      var w = window.open("", "_blank");
+      if (w) { w.document.write("<pre>"+esc(C.exportJson())+"</pre>"); w.document.close(); toast(T("exported")); }
+      break;
+    }
+    case "exportCsv": case "exportWord": case "exportPdf": {
+      var tbl = root.querySelector("#dataTable");
+      if (!tbl) break;
+      var rowsData = [].slice.call(tbl.querySelectorAll("tr")).map(function(tr){
+        return [].slice.call(tr.querySelectorAll("th,td")).slice(0, -1).map(function(td){
+          return td.textContent.trim();
+        });
+      });
+      var fname = entityLabel(v).replace(/\s+/g, "_");
+      if (act === "exportCsv") {
+        var csv = rowsData.map(function(r){
+          return r.map(function(c){ return '"' + c.replace(/"/g,'""') + '"'; }).join(","); }).join("\r\n");
+        downloadBlob("\uFEFF" + csv, fname + ".csv", "text/csv;charset=utf-8");
+      } else if (act === "exportWord") {
+        var html = '<html><head><meta charset="utf-8"></head><body dir="'+(lang()==="fa"?"rtl":"ltr")+'">'
+          + '<h2 style="font-family:sans-serif">' + esc(entityLabel(v)) + '</h2><table border="1" cellspacing="0" cellpadding="4" style="font-family:sans-serif;font-size:12px;border-collapse:collapse">'
+          + rowsData.map(function(r,i){ return '<tr>' + r.map(function(c){ return (i===0?'<th>':'<td>')+esc(c)+(i===0?'</th>':'</td>'); }).join("") + '</tr>'; }).join("")
+          + '</table></body></html>';
+        downloadBlob(html, fname + ".doc", "application/msword");
+      } else {
+        var pw = window.open("", "_blank");
+        if (pw) {
+          pw.document.write('<html><head><meta charset="utf-8"><title>'+esc(fname)+'</title><style>'
+            + 'body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse;font-size:12px}'
+            + 'th,td{border:1px solid #999;padding:6px 8px;text-align:'+(lang()==="fa"?"right":"left")+'}'
+            + 'th{background:#eee}</style></head><body dir="'+(lang()==="fa"?"rtl":"ltr")+'">'
+            + '<h2>' + esc(entityLabel(v)) + '</h2><table>'
+            + rowsData.map(function(r,i){ return '<tr>' + r.map(function(c){ return (i===0?'<th>':'<td>')+esc(c)+(i===0?'</th>':'</td>'); }).join("") + '</tr>'; }).join("")
+            + '</table></body></html>');
+          pw.document.close();
+          setTimeout(function(){ pw.print(); }, 250);
+        }
+      }
+      break;
+    }
+  }
+}
+
+C.onChange(function(){ /* keeps counts fresh when mobile writes in another frame */ });
+window.addEventListener("storage", function(e){ if (e.key && e.key.indexOf("sepehran.") === 0) render(); });
+render();
+</script>
+</body>
+</html>

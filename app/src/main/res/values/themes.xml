@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SepehranLogger" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/sl_paper</item>
+        <item name="android:navigationBarColor">@color/sl_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="colorPrimary">@color/sl_accent</item>
+    </style>
+
+    <!-- Shown for the few frames before the WebView paints the prototype splash. -->
+    <style name="Theme.SepehranLogger.Splash" parent="Theme.SepehranLogger">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

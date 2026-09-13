@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sl_paper">#F2F2F3</color>
+    <color name="sl_ink">#1D1F20</color>
+    <color name="sl_accent">#5980A6</color>
+    <color name="sl_accent_deep">#1D2D3D</color>
+    <color name="sl_accent_light">#94BCE3</color>
+</resources>

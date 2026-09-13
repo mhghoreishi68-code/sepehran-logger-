@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Sepehran Logger</title>
+<style>
+  :root{
+    --paper:#f2f2f3; --ink:#1d1f20; --line:rgba(29,31,32,.16); --acc:#5980a6;
+    --accSoft:#eef6ff; --muted:rgba(29,31,32,.58); --field:transparent;
+    --warn:#8a5710; --warnSoft:#faf1e2; --btnInk:#f2f2f3;
+    --head:"Barlow Condensed","Roboto Condensed",system-ui,sans-serif;
+    --body:Barlow,Roboto,system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,"Roboto Mono",Menlo,monospace;
+  }
+  html[data-theme="night"]{
+    --paper:#1d2d3d; --ink:#eef6ff; --line:rgba(238,246,255,.24); --acc:#94bce3;
+    --accSoft:rgba(238,246,255,.08); --muted:rgba(238,246,255,.62); --field:rgba(238,246,255,.07);
+    --warn:#e8b866; --warnSoft:rgba(232,184,102,.14); --btnInk:#1d2d3d;
+  }
+  html[lang="fa"]{ --head:Vazirmatn,"Noto Naskh Arabic",Tahoma,system-ui,sans-serif;
+                   --body:Vazirmatn,"Noto Naskh Arabic",Tahoma,system-ui,sans-serif; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;
+       overflow:hidden;-webkit-user-select:none;user-select:none}
+  #app{height:100%;display:flex;flex-direction:column;
+       padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  input,textarea,button{font-family:inherit;color:inherit;border-radius:0;-webkit-user-select:text;user-select:text}
+  input,textarea{background:var(--field);border:1px solid var(--line)}
+  input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-2px}
+  button{cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--ink)}
+  button:active{opacity:.75}
+  .ltr{direction:ltr;unicode-bidi:isolate}
+  .kick{font:600 10px/1.6 var(--mono);letter-spacing:.13em;color:var(--muted)}
+  html[lang="fa"] .kick{letter-spacing:0;font-family:var(--body);font-size:11px}
+  .h1{font:600 30px/1.1 var(--head)}
+  .h2{font:600 22px/1.2 var(--head)}
+  html[lang="fa"] .h1{font-size:26px;line-height:1.4}
+  html[lang="fa"] .h2{font-size:20px;line-height:1.5}
+  .row{display:flex;align-items:center;gap:10px}
+  .primary{height:60px;width:100%;background:var(--acc);border:1px solid var(--acc);
+           color:var(--btnInk);font:600 17px/1 var(--head);letter-spacing:.08em;text-transform:uppercase}
+  html[lang="fa"] .primary{letter-spacing:0;text-transform:none;font-size:17px}
+  .ghost{height:52px;font:600 15px/1 var(--head);letter-spacing:.06em;text-transform:uppercase}
+  html[lang="fa"] .ghost{letter-spacing:0;text-transform:none}
+  .seg{display:inline-flex;border:1px solid var(--line);flex:none}
+  .seg button{border:0;padding:7px 9px;font:600 10px/1 var(--head);letter-spacing:.1em;background:transparent}
+  .seg button.on{background:var(--acc);color:var(--btnInk)}
+  .sweep{height:2px;background:var(--accSoft);overflow:hidden;width:190px}
+  .sweep i{display:block;width:30%;height:100%;background:var(--acc);animation:sweep 1.6s linear infinite}
+  @keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
+  @keyframes blip{0%,100%{opacity:.25}50%{opacity:1}}
+  @keyframes ping{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.6);opacity:0}}
+  .dot{width:7px;height:7px;background:var(--acc);display:block;animation:blip 2s ease-in-out infinite}
+  .hd{padding:12px 16px 13px;border-bottom:1px solid var(--line)}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--line);
+        font:600 11px/1 var(--mono);letter-spacing:.06em;color:var(--muted)}
+  html[lang="fa"] .chip{font-family:var(--body);letter-spacing:0}
+  .chip.on{border-color:var(--acc);color:var(--acc)}
+  .chip.bad{background:var(--warn);border-color:var(--warn);color:var(--paper)}
+  .card{border:1px solid var(--line);padding:12px 13px 13px}
+  .card.bad{border-color:var(--warn);background:var(--warnSoft)}
+  .val{flex:1;min-width:0;height:58px;font:600 25px/1 var(--head);direction:ltr;text-align:start;
+       font-variant-numeric:tabular-nums;padding:0 13px;caret-color:var(--acc)}
+  .unit{flex:none;min-width:62px;display:flex;align-items:center;justify-content:center;padding:0 9px;
+        border:1px solid var(--line);font:400 13px/1 var(--body);color:var(--muted)}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);border-inline-start:1px solid var(--line)}
+  .tiles>div{border-inline-end:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 13px}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+  .meta div{display:flex;justify-content:space-between;gap:8px;font:500 10.5px/1.8 var(--mono)}
+  html[lang="fa"] .meta div{font-family:var(--body);font-size:11.5px}
+  .meta span:first-child{color:var(--muted)}
+  .listrow{display:flex;align-items:center;gap:13px;padding:13px 2px;min-height:60px;border-bottom:1px solid var(--line)}
+  .plate{flex:none;width:66px;padding:7px 0;text-align:center;border:1px solid var(--line);
+         font:500 12px/1 var(--mono);color:var(--acc);direction:ltr}
+  .sticky{position:sticky;bottom:0;background:var(--paper);border-top:1px solid var(--line);padding:13px 16px 16px}
+  .modal{position:fixed;inset:0;background:rgba(29,45,61,.6);display:flex;align-items:center;
+         justify-content:center;padding:22px;z-index:20}
+  .sheet{background:var(--paper);border:1px solid var(--ink);padding:19px;width:100%;max-width:420px}
+  .empty{margin:22px 0;border:1px dashed var(--muted);padding:34px 22px;text-align:center;
+         display:flex;flex-direction:column;align-items:center;gap:12px}
+  .note{font:400 12.5px/1.6 var(--body);color:var(--muted)}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);flex:none}
+  .tabs button{border:0;border-top:2px solid transparent;padding:9px 4px 11px;display:flex;
+               flex-direction:column;align-items:center;gap:5px;color:var(--muted);background:transparent}
+  .tabs button.on{border-top-color:var(--acc);color:var(--acc)}
+  .tabs span{font:600 10px/1 var(--head);letter-spacing:.08em;text-transform:uppercase}
+  html[lang="fa"] .tabs span{letter-spacing:0;text-transform:none;font-family:var(--body);font-size:11px}
+  .bar{height:6px;background:var(--accSoft);display:flex}
+  .bar i{display:block;height:100%}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Shared data + authentication layer: the same file the web admin loads, so
+     both applications read one user table and one master-data store. Absent in
+     a stage-1 APK build, in which case the app runs on the native bridge alone. -->
+<script src="sepehran-core.js" data-client="mobile"></script>
+
+<script>
+/* ──────────────────────────────────────────────────────────────────────────
+   Sepehran Logger — WebView UI.
+   Layers stay separate so each can be replaced by Kotlin later:
+     Native  — SepehranAndroid bridge (NFC, camera, storage, audit)
+     Domain  — validate() / submitGuard(): the only place a value is judged
+     I18N    — every user-facing string; no literals in the views
+     Data    — MASTER: equipment, parameters, equipment-parameter join
+     UI      — screens[], render()
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Shared core ───────────────────────────────────────────────────────────
+   One user table and one master-data store, shared with the web admin.
+   Null when the file is not bundled; the app then keeps working offline
+   against the native bridge with whatever master data it already holds. */
+const Core = window.SepehranCore || null;
+
+/* ── Native bridge ─────────────────────────────────────────────────────── */
+const Native = (() => {
+  const A = window.SepehranAndroid, has = !!A;
+  const j = (fn, d) => { try { return JSON.parse(fn()); } catch (e) { return d; } };
+  return {
+    has,
+    device: () => has ? j(A.deviceInfo, {}) : { model: "browser", appVersion: "preview" },
+    now: () => has ? j(A.now, null) : (() => {
+      const d = new Date(), p = n => String(n).padStart(2, "0");
+      return { epochMillis: +d, iso: d.toISOString(),
+               time: `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`,
+               date: d.toISOString().slice(0, 10) };
+    })(),
+    nfcState: () => has ? A.nfcState() : "ABSENT",
+    openNfcSettings: () => has && A.openNfcSettings(),
+    capturePhoto: t => has ? A.capturePhoto(t)
+      : setTimeout(() => window.SepehranNative.onPhotoCaptured(
+          { token: t, path: "(preview)", name: "IMG_" + t + ".jpg", bytes: 214000 }), 250),
+    deletePhoto: p => has && A.deletePhoto(p),
+    saveRecord: o => has ? JSON.parse(A.saveRecord(JSON.stringify(o)))
+                         : { ...o, id: "local-" + Date.now(), syncState: "PENDING" },
+    saveDraft: o => has && A.saveDraft(JSON.stringify(o)),
+    loadDraft: () => { if (!has) return null; try { return JSON.parse(A.loadDraft() || "null"); } catch (e) { return null; } },
+    clearDraft: () => has && A.clearDraft(),
+    pending: () => has ? j(A.pendingRecords, []) : [],
+    setSessionUser: (c, n, s) => has && A.setSessionUser(c, n, s),
+    audit: (a, e) => has && A.audit(a, e || ""),
+    theme: () => has ? A.theme() : (localStorage.getItem("theme") || "light"),
+    setTheme: t => has ? A.setTheme(t) : localStorage.setItem("theme", t),
+    toast: m => has ? A.toast(m) : console.log("toast:", m),
+    tick: () => has && A.tick(),
+    exit: () => has && A.exitApp()
+  };
+})();
+
+/* ── Domain ────────────────────────────────────────────────────────────── */
+// Mirrors RangeValidator in :domain and ops.spIngestCollectionRecord on the server.
+function validate(raw, min, max, warnMin, warnMax, dataType, expectedBool) {
+  const text = (raw ?? "").toString().trim();
+  if (!text) return "NOT_ENTERED";
+  if (dataType === "BOOLEAN") {
+    if (text !== "true" && text !== "false") return "INVALID";
+    if (expectedBool === null || expectedBool === undefined) return "NORMAL";
+    return (text === "true") === !!expectedBool ? "NORMAL" : "ABNORMAL";
+  }
+  if (dataType === "TEXT") return "NORMAL";
+  const v = Number(text);
+  if (!isFinite(v)) return "INVALID";
+  if (min == null || max == null || min >= max) return "NORMAL";
+  if (warnMin != null && v < warnMin) return "CRITICAL";
+  if (warnMax != null && v > warnMax) return "CRITICAL";
+  if (v < min || v > max) return "ABNORMAL";
+  return "NORMAL";
+}
+// Blocks only on missing required values, invalid input and missing required photos.
+// An out-of-range value is never a reason to refuse a submission.
+function submitGuard(rows, state) {
+  const missVal = [], missPhoto = [], invalid = [];
+  rows.forEach(r => {
+    const st = validate(state.values[r.code], r.min, r.max, null, null, r.dataType, r.expectedBool);
+    if (r.required && st === "NOT_ENTERED") missVal.push(r.code);
+    if (st === "INVALID") invalid.push(r.code);
+    if (r.photo === "REQUIRED" && st !== "NOT_ENTERED" && !state.photos[r.code]) missPhoto.push(r.code);
+  });
+  const p = [];
+  if (missVal.length) p.push(T("gMissVal", { n: missVal.length, list: missVal.slice(0, 3).join("، ") + (missVal.length > 3 ? "…" : "") }));
+  if (invalid.length) p.push(T("gInvalid", { list: invalid.join("، ") }));
+  if (missPhoto.length) p.push(T("gMissPhoto", { list: missPhoto.join("، ") }));
+  return { ok: p.length === 0, message: p.join(" ") };
+}
+
+/* ── I18N ──────────────────────────────────────────────────────────────── */
+const STR = {
+  en: {
+    brandLine: "SEPEHRAN INDUSTRIAL", rev: "REV 1.0",
+    brand: "SEPEHRAN LOGGER", tagline: "INDUSTRIAL DATA ACQUISITION",
+    loadingMaster: "Loading master data · equipment {eq} · parameters {pa}",
+    tapContinue: "TAP TO CONTINUE",
+    signIn: "Sign in", signInSub: "Readings are recorded against your personnel code and shift.",
+    username: "USERNAME", password: "PASSWORD", userPh: "admin",
+    userReq: "Username is required.", passReq: "Password is required.",
+    errTitle: "Username or password is incorrect", errBody: "2 attempts remaining before the account is locked.",
+    login: "Log in", showPass: "Show password",
+    offlinePending: "OFFLINE MODE · {n} RECORDS PENDING",
+    adminNote: "Accounts are created by the system administrator.",
+    tabHome: "Home", tabRoute: "Route", tabBoard: "Dashboard", tabData: "Master data",
+    todayRoute: "Today's route", shiftLine: "{shift} · PERS {code}",
+    routeProgress: "{done} of {total} equipment collected", dueNow: "{n} due this window",
+    openRoute: "Open the route", scanTag: "Scan a tag",
+    pendingSync: "{n} records waiting to sync", syncedAll: "Everything is synced",
+    selectEquipment: "Select equipment", searchPh: "Tag number, code or name",
+    nfcReady: "Hold the phone to the equipment tag", nfcReadySub: "The equipment opens automatically once the tag is recognised.",
+    nfcOff: "NFC is turned off", nfcOffSub: "Tap to open Android NFC settings.",
+    nfcAbsent: "NFC not available on this device", nfcAbsentSub: "Use search — every equipment item is reachable this way.",
+    unknownTag: "This tag is not registered to any equipment",
+    unknownTagSub: "Ask the administrator to assign it in Equipment Master, or find the equipment by search.",
+    dismiss: "Dismiss", uid: "UID",
+    countOf: "{n} OF {total} EQUIPMENT", dueWindow: "{n} DUE THIS WINDOW",
+    noMatch: "No equipment matches “{q}”",
+    noMatchSub: "Check the tag number, or clear the area filter. Equipment is created by the administrator in Equipment Master.",
+    clearSearch: "Clear search", areaAll: "All",
+    scanTitle: "Scan the equipment tag", scanSub: "Hold the back of the phone flat against the NFC tag.",
+    scanWaiting: "Waiting for a tag…", useSearch: "Search instead", openSettings: "Open NFC settings",
+    identifiedNfc: "IDENTIFIED BY NFC", identifiedSearch: "IDENTIFIED BY SEARCH",
+    mType: "TYPE", mArea: "AREA", mUnit: "UNIT", mLoc: "LOCATION", mDate: "DATE", mTime: "TIME",
+    mOperator: "OPERATOR", mPers: "PERS", mShift: "SHIFT", mInterval: "INTERVAL", every2h: "every 2 h",
+    paramsCount: "PARAMETERS · {n} OF {total} ENTERED", abnormalCount: "{n} ABNORMAL",
+    cannotSave: "Cannot save yet",
+    gMissVal: "{n} required parameter(s) have no value ({list}).",
+    gInvalid: "Check the value entered for {list}.",
+    gMissPhoto: "A photo is required for {list}.",
+    normalRange: "NORMAL {min} – {max}{unit}", required: "REQUIRED", optional: "OPTIONAL",
+    stNormal: "NORMAL", stAbnormal: "ABNORMAL", stCritical: "CRITICAL", stEmpty: "NOT ENTERED", stInvalid: "CHECK VALUE",
+    photoAttached: "PHOTO ATTACHED", photoRequired: "PHOTO REQUIRED", addPhoto: "ADD PHOTO", retake: "Retake",
+    outOfRange: "Outside the normal operating range.",
+    outOfRangeBody: "Entered {v} {unit}, normal {min}–{max}{unitSuffix}. The value is recorded as entered — report the condition in the observation below.",
+    photoOnDevice: "{kb} KB on the device · syncs with the record",
+    observation: "EQUIPMENT OBSERVATION",
+    obsPh: "Leakage, abnormal noise, vibration, damaged gauge, visible damage, maintenance concern…",
+    saveReading: "Save reading", offlineSaves: "OFFLINE · SAVES TO DEVICE, SYNCS LATER",
+    savedTitle: "Reading saved", tParams: "PARAMETERS", tAbnormal: "ABNORMAL", tPhotos: "PHOTOS", tSaved: "SAVED",
+    none: "None", savedLocal: "Saved locally — waiting for synchronization",
+    savedLocalSub: "The record and its photos are written to this device. {n} record(s) queued; they upload when the site network is reachable.",
+    nextEquipment: "Next equipment", viewRecord: "View the record",
+    unsaved: "Unsaved readings",
+    unsavedSub: "{n} of {total} parameters have values on this equipment. Leaving now discards them.",
+    continueEditing: "Continue editing", save: "Save", discard: "Discard",
+    boardTitle: "Shift dashboard", boardSub: "Shift {shift} · window 06:00–08:00",
+    bExpected: "EXPECTED", bCompleted: "COMPLETED", bMissing: "MISSING", bLate: "LATE",
+    bAbnormal: "ABNORMAL READINGS", bEquipment: "EQUIPMENT STATUS",
+    stComplete: "Complete", stLate: "Late", stMissingS: "Missing", stDue: "Due",
+    paramLevel: "{done}/{total} parameters",
+    masterTitle: "Master data", mdEquipment: "Equipment Master", mdParameters: "Parameter Master",
+    mdEquipmentSub: "{n} items · tag numbers and NFC assignment",
+    mdParametersSub: "{n} parameters · ranges and photo policy",
+    mdSync: "Sync queue", mdSyncSub: "{n} records waiting", readOnly: "Read-only in this build",
+    back: "Back", equipmentList: "Equipment", parameterList: "Parameters", syncQueue: "Sync queue",
+    syncEmpty: "Nothing waiting to sync", syncEmptySub: "Every record on this device has been accepted by the server.",
+    pendingLabel: "PENDING", signOut: "Sign out", langName: "فا",
+    site: "SITE", allSites: "All sites", group: "GROUP", noGroup: "No group",
+    mSite: "SITE", mGroup: "GROUP",
+    yes: "YES", no: "NO", on: "ON", off: "OFF", expected: "expected {v}",
+    stMatches: "AS EXPECTED", stDiffers: "NOT AS EXPECTED",
+    boolAbnormal: "Reported state differs from the expected state.",
+    boolAbnormalBody: "Expected {exp}, reported {got}. The answer is recorded as given — describe the condition in the observation below.",
+    textPh: "Short note",
+    syncTitle: "Synchronization", syncSub: "Server {url}",
+    syncNow: "Synchronize now", syncing: "Synchronizing…",
+    sPending: "PENDING", sSynced: "SYNCED", sFailed: "FAILED",
+    lastSync: "Last synchronization {t}", neverSynced: "Never synchronized",
+    syncQueueEmpty: "Nothing waiting to sync",
+    syncQueueEmptySub: "Every record on this device has been accepted by the server.",
+    retry: "Retry", retryAll: "Retry failed",
+    syncNoNet: "No connection to the plant server. Records stay on the device.",
+    syncDone: "{n} records synchronized",
+    serverUrl: "SERVER ADDRESS", serverUrlSub: "Set by the administrator. Not built into the app.",
+    unitsFrom: "Units and ranges come from master data.",
+    stateSynced: "SYNCED", stateFailed: "FAILED", stateSyncing: "SYNCING",
+    noMaster: "No equipment has been set up yet",
+    noMasterSub: "An administrator creates sites, equipment and parameters in the web panel. Once equipment exists for your sites, it appears here.",
+    noParams: "No parameters assigned to this equipment",
+    noParamsSub: "An administrator assigns parameters in the web panel, under Equipment ↔ parameter.",
+    sharedAccount: "The same account as the web panel."
+  },
+  fa: {
+    brandLine: "صنایع سپهران", rev: "نسخه ۱٫۰",
+    brand: "دیتالاگر سپهران", tagline: "ثبت و پایش داده‌های صنعتی",
+    loadingMaster: "بارگذاری داده پایه · {eq} تجهیز · {pa} پارامتر",
+    tapContinue: "برای ادامه لمس کنید",
+    signIn: "ورود به سامانه", signInSub: "هر ثبت داده با کد پرسنلی و شیفت شما ثبت می‌شود.",
+    username: "نام کاربری", password: "گذرواژه", userPh: "admin",
+    userReq: "نام کاربری الزامی است.", passReq: "گذرواژه الزامی است.",
+    errTitle: "نام کاربری یا گذرواژه نادرست است", errBody: "۲ تلاش باقی مانده است؛ پس از آن حساب قفل می‌شود.",
+    login: "ورود", showPass: "نمایش گذرواژه",
+    offlinePending: "حالت آفلاین · {n} رکورد در انتظار ارسال",
+    adminNote: "حساب‌های کاربری توسط مدیر سیستم ایجاد می‌شوند.",
+    tabHome: "خانه", tabRoute: "مسیر", tabBoard: "داشبورد", tabData: "داده پایه",
+    todayRoute: "مسیر بازدید امروز", shiftLine: "شیفت {shift} · کد پرسنلی {code}",
+    routeProgress: "{done} تجهیز از {total} تجهیز ثبت شده است", dueNow: "{n} تجهیز در این بازه موعد دارد",
+    openRoute: "باز کردن مسیر", scanTag: "خواندن تگ",
+    pendingSync: "{n} رکورد در انتظار همگام‌سازی", syncedAll: "همه رکوردها همگام شده‌اند",
+    selectEquipment: "انتخاب تجهیز", searchPh: "شماره تگ، کد یا نام تجهیز",
+    nfcReady: "گوشی را نزدیک تگ تجهیز نگه دارید", nfcReadySub: "پس از شناسایی تگ، تجهیز به‌صورت خودکار باز می‌شود.",
+    nfcOff: "NFC خاموش است", nfcOffSub: "برای باز کردن تنظیمات NFC لمس کنید.",
+    nfcAbsent: "این دستگاه NFC ندارد", nfcAbsentSub: "از جست‌وجو استفاده کنید؛ همه تجهیزات از این راه در دسترس‌اند.",
+    unknownTag: "این تگ به هیچ تجهیزی اختصاص داده نشده است",
+    unknownTagSub: "از مدیر سیستم بخواهید آن را در «تجهیزات پایه» ثبت کند، یا تجهیز را جست‌وجو کنید.",
+    dismiss: "بستن", uid: "شناسه تگ",
+    countOf: "{n} تجهیز از {total} تجهیز", dueWindow: "{n} مورد موعددار",
+    noMatch: "تجهیزی با «{q}» پیدا نشد",
+    noMatchSub: "شماره تگ را بررسی کنید یا فیلتر ناحیه را بردارید. تجهیزات توسط مدیر سیستم در «تجهیزات پایه» ایجاد می‌شوند.",
+    clearSearch: "پاک کردن جست‌وجو", areaAll: "همه",
+    scanTitle: "خواندن تگ تجهیز", scanSub: "پشت گوشی را صاف روی تگ NFC نگه دارید.",
+    scanWaiting: "در انتظار تگ…", useSearch: "جست‌وجو کنم", openSettings: "تنظیمات NFC",
+    identifiedNfc: "شناسایی با NFC", identifiedSearch: "انتخاب از جست‌وجو",
+    mType: "نوع", mArea: "ناحیه", mUnit: "واحد", mLoc: "موقعیت", mDate: "تاریخ", mTime: "ساعت",
+    mOperator: "اپراتور", mPers: "کد پرسنلی", mShift: "شیفت", mInterval: "بازه", every2h: "هر ۲ ساعت",
+    paramsCount: "پارامترها · {n} از {total} ثبت شده", abnormalCount: "{n} مقدار غیرعادی",
+    cannotSave: "ثبت هنوز ممکن نیست",
+    gMissVal: "{n} پارامتر الزامی بدون مقدار است ({list}).",
+    gInvalid: "مقدار وارد شده برای {list} را بررسی کنید.",
+    gMissPhoto: "برای {list} عکس الزامی است.",
+    normalRange: "محدوده عادی {min} – {max}{unit}", required: "الزامی", optional: "اختیاری",
+    stNormal: "عادی", stAbnormal: "غیرعادی", stCritical: "بحرانی", stEmpty: "ثبت نشده", stInvalid: "مقدار نامعتبر",
+    photoAttached: "عکس ثبت شد", photoRequired: "عکس الزامی", addPhoto: "افزودن عکس", retake: "عکس مجدد",
+    outOfRange: "خارج از محدوده عملیاتی عادی.",
+    outOfRangeBody: "مقدار واردشده {v} {unit} است، محدوده عادی {min}–{max}{unitSuffix}. مقدار دقیقاً همان‌گونه که وارد شده ثبت می‌شود — شرح وضعیت را در بخش مشاهدات بنویسید.",
+    photoOnDevice: "{kb} کیلوبایت روی دستگاه · همراه رکورد ارسال می‌شود",
+    observation: "مشاهدات تجهیز",
+    obsPh: "نشتی، صدای غیرعادی، لرزش، خرابی گیج، آسیب ظاهری، نگرانی تعمیراتی…",
+    saveReading: "ثبت داده", offlineSaves: "آفلاین · روی دستگاه ذخیره و بعداً ارسال می‌شود",
+    savedTitle: "داده ثبت شد", tParams: "پارامترها", tAbnormal: "غیرعادی", tPhotos: "عکس‌ها", tSaved: "زمان ثبت",
+    none: "ندارد", savedLocal: "به‌صورت محلی ذخیره شد — در انتظار همگام‌سازی",
+    savedLocalSub: "رکورد و عکس‌های آن روی همین دستگاه نوشته شد. {n} رکورد در صف است و با برقراری شبکه سایت ارسال می‌شود.",
+    nextEquipment: "تجهیز بعدی", viewRecord: "مشاهده رکورد",
+    unsaved: "داده‌های ثبت‌نشده",
+    unsavedSub: "{n} پارامتر از {total} پارامتر این تجهیز مقدار دارد. با خروج، این مقادیر حذف می‌شوند.",
+    continueEditing: "ادامه ویرایش", save: "ذخیره", discard: "حذف مقادیر",
+    boardTitle: "داشبورد شیفت", boardSub: "شیفت {shift} · بازه ۰۶:۰۰ تا ۰۸:۰۰",
+    bExpected: "مورد انتظار", bCompleted: "انجام‌شده", bMissing: "انجام‌نشده", bLate: "با تأخیر",
+    bAbnormal: "مقادیر غیرعادی", bEquipment: "وضعیت تجهیزات",
+    stComplete: "کامل", stLate: "با تأخیر", stMissingS: "انجام نشده", stDue: "موعددار",
+    paramLevel: "{done} از {total} پارامتر",
+    masterTitle: "داده پایه", mdEquipment: "تجهیزات پایه", mdParameters: "پارامترهای پایه",
+    mdEquipmentSub: "{n} تجهیز · شماره تگ و تخصیص NFC",
+    mdParametersSub: "{n} پارامتر · محدوده‌ها و سیاست عکس",
+    mdSync: "صف همگام‌سازی", mdSyncSub: "{n} رکورد در انتظار", readOnly: "در این نسخه فقط خواندنی است",
+    back: "بازگشت", equipmentList: "تجهیزات", parameterList: "پارامترها", syncQueue: "صف همگام‌سازی",
+    syncEmpty: "چیزی در صف نیست", syncEmptySub: "همه رکوردهای این دستگاه توسط سرور پذیرفته شده‌اند.",
+    pendingLabel: "در انتظار", signOut: "خروج", langName: "EN",
+    site: "سایت", allSites: "همه سایت‌ها", group: "گروه", noGroup: "بدون گروه",
+    mSite: "سایت", mGroup: "گروه",
+    yes: "بله", no: "خیر", on: "روشن", off: "خاموش", expected: "حالت عادی: {v}",
+    stMatches: "مطابق انتظار", stDiffers: "مغایر با انتظار",
+    boolAbnormal: "وضعیت گزارش‌شده با حالت عادی تفاوت دارد.",
+    boolAbnormalBody: "حالت عادی {exp} است و {got} گزارش شد. پاسخ دقیقاً همان‌گونه که داده شده ثبت می‌شود — شرح وضعیت را در بخش مشاهدات بنویسید.",
+    textPh: "یادداشت کوتاه",
+    syncTitle: "همگام‌سازی", syncSub: "سرور {url}",
+    syncNow: "همگام‌سازی کن", syncing: "در حال همگام‌سازی…",
+    sPending: "در انتظار", sSynced: "ارسال‌شده", sFailed: "ناموفق",
+    lastSync: "آخرین همگام‌سازی {t}", neverSynced: "تاکنون همگام‌سازی نشده است",
+    syncQueueEmpty: "چیزی در صف نیست",
+    syncQueueEmptySub: "همه رکوردهای این دستگاه توسط سرور پذیرفته شده‌اند.",
+    retry: "تلاش مجدد", retryAll: "تلاش مجدد موارد ناموفق",
+    syncNoNet: "ارتباط با سرور برقرار نشد. رکوردها روی دستگاه باقی می‌مانند.",
+    syncDone: "{n} رکورد همگام شد",
+    serverUrl: "آدرس سرور", serverUrlSub: "توسط مدیر سیستم تنظیم می‌شود و در برنامه ثابت نیست.",
+    unitsFrom: "واحدها و محدوده‌ها از داده پایه خوانده می‌شوند.",
+    stateSynced: "ارسال شد", stateFailed: "ناموفق", stateSyncing: "در حال ارسال",
+    noMaster: "هنوز تجهیزی تعریف نشده است",
+    noMasterSub: "مدیر سیستم سایت‌ها، تجهیزات و پارامترها را در پنل وب تعریف می‌کند. پس از آن اینجا نمایش داده می‌شوند.",
+    noParams: "برای این تجهیز پارامتری تخصیص داده نشده است",
+    noParamsSub: "مدیر سیستم در پنل وب، بخش «تخصیص پارامتر به تجهیز»، پارامترها را اختصاص می‌دهد.",
+    sharedAccount: "همان حساب کاربری پنل وب."
+  }
+};
+function T(key, vars) {
+  let s = (STR[S.lang] && STR[S.lang][key]) || STR.en[key] || key;
+  if (vars) Object.keys(vars).forEach(k => { s = s.split("{" + k + "}").join(vars[k]); });
+  return S.lang === "fa" ? faDigits(s) : s;
+}
+const FA_D = "۰۱۲۳۴۵۶۷۸۹";
+const faDigits = s => String(s).replace(/[0-9]/g, d => FA_D[+d]);
+const nums = s => S.lang === "fa" ? faDigits(s) : String(s);
+
+/* ── Data (replaced by Room in the native phases) ──────────────────────── */
+const MASTER = {
+  // Mirrors md.Site / md.EquipmentGroup / md.Unit. Replaced by Room + the
+  // master-data delta pull in the native phase; nothing here is a system limit.
+  sites: [
+    { code: "001", nameEn: "ASU", nameFa: "واحد تفکیک هوا" },
+    { code: "002", nameEn: "RO", nameFa: "واحد اسمز معکوس" },
+    { code: "003", nameEn: "Solar Power Plant", nameFa: "نیروگاه خورشیدی" }
+  ],
+  groups: [
+    { code: "RO-HPP",   site: "002", nameEn: "RO High Pressure Pumps", nameFa: "پمپ‌های فشار قوی RO" },
+    { code: "ASU-COMP", site: "001", nameEn: "ASU Compressors",        nameFa: "کمپرسورهای ASU" },
+    { code: "SP-INV",   site: "003", nameEn: "Solar Inverters",        nameFa: "اینورترهای نیروگاه" }
+  ],
+  areas: ["All", "Area 3", "Water plant", "Utilities", "ASU", "Boiler house"],
+  areaFa: { "All": "همه", "Area 3": "ناحیه ۳", "Water plant": "تصفیه آب", "Utilities": "سرویس‌ها", "ASU": "واحد تفکیک هوا", "Boiler house": "بویلرخانه" },
+  equipment: [
+    { tag: "P-201", code: "EQ-0201", site: "002", group: "RO-HPP", nameEn: "RO high pressure pump 1", nameFa: "پمپ فشار قوی RO ۱", type: "Pump", typeFa: "پمپ", area: "Water plant", unit: "Demin 2", loc: "Skid 1", crit: "HIGH", nfc: "04A2B7C1D3E401", status: "DUE" },
+    { tag: "P-202", code: "EQ-0202", site: "002", group: "RO-HPP", nameEn: "RO high pressure pump 2", nameFa: "پمپ فشار قوی RO ۲", type: "Pump", typeFa: "پمپ", area: "Water plant", unit: "Demin 2", loc: "Skid 2", crit: "HIGH", nfc: "04A2B7C1D3E402", status: "DONE", at: "06:12" },
+    { tag: "P-203", code: "EQ-0203", site: "002", group: "RO-HPP", nameEn: "RO high pressure pump 3", nameFa: "پمپ فشار قوی RO ۳", type: "Pump", typeFa: "پمپ", area: "Water plant", unit: "Demin 2", loc: "Skid 3", crit: "HIGH", nfc: "04A2B7C1D3E403", status: "DUE" },
+    { tag: "P-204", code: "EQ-0204", site: "002", group: "RO-HPP", nameEn: "RO high pressure pump 4", nameFa: "پمپ فشار قوی RO ۴", type: "Pump", typeFa: "پمپ", area: "Water plant", unit: "Demin 2", loc: "Skid 4", crit: "MED", nfc: "04A2B7C1D3E404", status: "OVERDUE" },
+    { tag: "P-205", code: "EQ-0205", site: "002", group: "RO-HPP", nameEn: "RO high pressure pump 5", nameFa: "پمپ فشار قوی RO ۵", type: "Pump", typeFa: "پمپ", area: "Water plant", unit: "Demin 2", loc: "Skid 5", crit: "MED", nfc: "04A2B7C1D3E405", status: "DUE" },
+    { tag: "RO-01", code: "EQ-0031", site: "002", group: null, nameEn: "RO train A — reverse osmosis skid", nameFa: "واحد اسمز معکوس A", type: "RO unit", typeFa: "واحد RO", area: "Water plant", unit: "Demin 2", loc: "Skid 4, level 1", crit: "HIGH", nfc: "04A2B7C1D3E483", status: "DUE" },
+    { tag: "TK-402", code: "EQ-0060", site: "002", group: null, nameEn: "Demin water tank", nameFa: "مخزن آب دیمین", type: "Tank", typeFa: "مخزن", area: "Water plant", unit: "Demin 2", loc: "Tank farm", crit: "LOW", nfc: "04A2B7C1D3E487", status: "DONE", at: "06:31" },
+    { tag: "C-210", code: "EQ-0020", site: "001", group: "ASU-COMP", nameEn: "Instrument air compressor", nameFa: "کمپرسور هوای ابزار دقیق", type: "Compressor", typeFa: "کمپرسور", area: "Utilities", unit: "Air", loc: "Compressor house", crit: "HIGH", nfc: "04A2B7C1D3E482", status: "OVERDUE" },
+    { tag: "ASU-1", code: "EQ-0040", site: "001", group: null, nameEn: "Air separation unit", nameFa: "واحد تفکیک هوا", type: "ASU", typeFa: "واحد ASU", area: "ASU", unit: "ASU", loc: "Cold box", crit: "CRITICAL", nfc: "04A2B7C1D3E485", status: "DUE" },
+    { tag: "B-501", code: "EQ-0070", site: "001", group: null, nameEn: "Steam boiler 1", nameFa: "بویلر بخار ۱", type: "Boiler", typeFa: "بویلر", area: "Boiler house", unit: "Steam 1", loc: "Boiler house", crit: "CRITICAL", nfc: "04A2B7C1D3E488", status: "DONE", at: "06:44" },
+    { tag: "INV-01", code: "EQ-0301", site: "003", group: "SP-INV", nameEn: "Inverter 1", nameFa: "اینورتر ۱", type: "Inverter", typeFa: "اینورتر", area: "Utilities", unit: "Inverter room", loc: "Inverter room", crit: "HIGH", nfc: "04A2B7C1D3E501", status: "DUE" },
+    { tag: "PV-A1", code: "EQ-0310", site: "003", group: null, nameEn: "PV array A1", nameFa: "آرایه خورشیدی A۱", type: "PV array", typeFa: "آرایه خورشیدی", area: "Area 3", unit: "East field", loc: "East field", crit: "MED", nfc: "04A2B7C1D3E510", status: "DUE" }
+  ],
+  params: {
+    "RO-01": [
+      { code: "PT-001", name: "Feed pressure", nameFa: "فشار خوراک", unit: "bar", unitFa: "بار", min: 10, max: 15, dec: 1, required: true, photo: "REQUIRED" },
+      { code: "PT-002", name: "Permeate pressure", nameFa: "فشار آب محصول", unit: "bar", unitFa: "بار", min: 1.5, max: 4, dec: 1, required: true, photo: "OPTIONAL" },
+      { code: "DP-003", name: "Cartridge filter ΔP", nameFa: "افت فشار فیلتر کارتریجی", unit: "bar", unitFa: "بار", min: 0.2, max: 1.2, dec: 2, required: true, photo: "OPTIONAL" },
+      { code: "FT-004", name: "Permeate flow", nameFa: "دبی آب محصول", unit: "m³/h", unitFa: "م۳/س", min: 36, max: 46, dec: 1, required: true, photo: "REQUIRED" },
+      { code: "FT-005", name: "Concentrate flow", nameFa: "دبی پساب", unit: "m³/h", unitFa: "م۳/س", min: 12, max: 18, dec: 1, required: true, photo: "DISABLED" },
+      { code: "CT-006", name: "Permeate conductivity", nameFa: "هدایت آب محصول", unit: "µS/cm", unitFa: "µS/cm", min: 0, max: 120, dec: 0, required: true, photo: "OPTIONAL" },
+      { code: "CT-007", name: "Feed conductivity", nameFa: "هدایت خوراک", unit: "µS/cm", unitFa: "µS/cm", min: 800, max: 1400, dec: 0, required: true, photo: "DISABLED" },
+      { code: "TT-008", name: "Feed temperature", nameFa: "دمای خوراک", unit: "°C", unitFa: "°C", min: 18, max: 30, dec: 1, required: true, photo: "DISABLED" },
+      { code: "AT-009", name: "Feed pH", nameFa: "pH خوراک", unit: "", unitFa: "", min: 6.5, max: 8.2, dec: 2, required: true, photo: "OPTIONAL" },
+      { code: "AT-010", name: "Free chlorine", nameFa: "کلر آزاد", unit: "ppm", unitFa: "ppm", min: 0, max: 0.05, dec: 2, required: true, photo: "REQUIRED" },
+      { code: "CA-011", name: "Recovery", nameFa: "بازیابی", unit: "%", unitFa: "٪", min: 70, max: 80, dec: 1, required: false, photo: "DISABLED" },
+      { code: "VB-012", name: "HP pump vibration", nameFa: "لرزش پمپ فشار قوی", unit: "mm/s", unitFa: "mm/s", min: 0, max: 4.5, dec: 1, required: false, photo: "OPTIONAL" },
+      { code: "BL-101", name: "Running?", nameFa: "در حال کار است؟", dataType: "BOOLEAN", expectedBool: true, unit: "", unitFa: "", required: true, photo: "DISABLED" },
+      { code: "BL-102", name: "Leakage?", nameFa: "نشتی دارد؟", dataType: "BOOLEAN", expectedBool: false, unit: "", unitFa: "", required: true, photo: "REQUIRED" }
+    ],
+    "_default": [
+      { code: "PT-101", name: "Discharge pressure", nameFa: "فشار خروجی", unit: "bar", unitFa: "بار", min: 10, max: 15, dec: 1, required: true, photo: "REQUIRED" },
+      { code: "PT-102", name: "Suction pressure", nameFa: "فشار مکش", unit: "bar", unitFa: "بار", min: 0.5, max: 3, dec: 1, required: true, photo: "OPTIONAL" },
+      { code: "TT-103", name: "Bearing temperature", nameFa: "دمای یاتاقان", unit: "°C", unitFa: "°C", min: 20, max: 75, dec: 1, required: true, photo: "OPTIONAL" },
+      { code: "VB-104", name: "Vibration", nameFa: "لرزش", unit: "mm/s", unitFa: "mm/s", min: 0, max: 4.5, dec: 1, required: true, photo: "DISABLED" },
+      { code: "AM-105", name: "Motor current", nameFa: "جریان الکتروموتور", unit: "A", unitFa: "آمپر", min: 40, max: 95, dec: 1, required: true, photo: "OPTIONAL" },
+      { code: "FT-106", name: "Flow", nameFa: "دبی", unit: "m³/h", unitFa: "م۳/س", min: 20, max: 60, dec: 1, required: true, photo: "DISABLED" },
+      { code: "LV-107", name: "Seal pot level", nameFa: "سطح مخزن آب‌بند", unit: "%", unitFa: "٪", min: 30, max: 90, dec: 0, required: false, photo: "OPTIONAL" },
+      { code: "TT-108", name: "Motor winding temp.", nameFa: "دمای سیم‌پیچ موتور", unit: "°C", unitFa: "°C", min: 20, max: 110, dec: 1, required: false, photo: "DISABLED" },
+      { code: "BL-101", name: "Running?", nameFa: "در حال کار است؟", dataType: "BOOLEAN", expectedBool: true, unit: "", unitFa: "", required: true, photo: "DISABLED" },
+      { code: "BL-102", name: "Leakage?", nameFa: "نشتی دارد؟", dataType: "BOOLEAN", expectedBool: false, unit: "", unitFa: "", required: true, photo: "REQUIRED" },
+      { code: "BL-104", name: "Valve open?", nameFa: "شیر باز است؟", dataType: "BOOLEAN", expectedBool: true, unit: "", unitFa: "", required: false, photo: "DISABLED" },
+      { code: "BL-105", name: "Alarm active?", nameFa: "آلارم فعال است؟", dataType: "BOOLEAN", expectedBool: false, unit: "", unitFa: "", required: true, photo: "OPTIONAL" },
+      { code: "TX-201", name: "Visual condition", nameFa: "وضعیت ظاهری", dataType: "TEXT", unit: "", unitFa: "", required: false, photo: "OPTIONAL" }
+    ]
+  },
+  paramsFor(tag) {
+    if (Core) {
+      const e = this.byTag(tag);
+      return e && e.coreId ? Core.parametersFor(e.coreId).map(p => ({
+        code: p.code, name: p.nameEn, nameFa: p.nameFa, unit: p.unit, unitFa: p.unit,
+        min: p.min, max: p.max, dec: p.decimals, required: p.required, photo: p.photo,
+        dataType: p.dataType, expectedBool: p.expectedBool, epId: p.equipmentParameterId,
+        parameterId: p.parameterId
+      })) : [];
+    }
+    return (this.params[tag] || this.params._default)
+      .map(p => ({ ...p, dataType: p.dataType || "NUMERIC", expectedBool: p.expectedBool ?? null }));
+  },
+  siteName(code) { const s = this.sites.find(x => x.code === code); return s ? (S.lang === "fa" ? s.nameFa : s.nameEn) : "—"; },
+  siteLabel(code) { const s = this.sites.find(x => x.code === code); return s ? code + " — " + (S.lang === "fa" ? s.nameFa : s.nameEn) : "—"; },
+  groupsForSite(site) { return this.groups.filter(g => site === "ALL" || g.site === site); },
+  groupName(code) { const g = this.groups.find(x => x.code === code); return g ? (S.lang === "fa" ? g.nameFa : g.nameEn) : null; },
+  inSite(e) { return S.site === "ALL" || e.site === S.site; },
+  byTag(tag) { return this.equipment.find(e => e.tag === tag); },
+  byNfc(uid) { return this.equipment.find(e => e.nfc === uid); },
+  eqName(e) { return S.lang === "fa" ? e.nameFa : e.nameEn; },
+  eqType(e) { return S.lang === "fa" ? e.typeFa : e.type; },
+  areaName(a) { return S.lang === "fa" ? (this.areaFa[a] || a) : a; },
+  pName(p) { return S.lang === "fa" ? p.nameFa : p.name; },
+  pUnit(p) { return S.lang === "fa" ? p.unitFa : p.unit; }
+};
+
+/* Master data comes from the shared store. Anything the administrator creates
+   in the web panel appears here; nothing is hard-coded once Core is present. */
+// Distinct parameters assigned across the equipment this operator can see.
+function paramCount() {
+  if (!Core) return 0;
+  return Core.list("parameter", { status: "ACTIVE" }).length;
+}
+
+function syncMasterFromCore() {
+  if (!Core) return;
+  const sites = Core.list("site", { status: "ACTIVE" });
+  MASTER.sites = sites.map(s => ({ code: s.siteCode, nameEn: s.nameEn, nameFa: s.nameFa, id: s.id }));
+
+  const siteCode = id => { const s = sites.find(x => x.id === id); return s ? s.siteCode : null; };
+
+  MASTER.groups = Core.list("group", { status: "ACTIVE" })
+    .map(g => ({ code: g.groupCode, site: siteCode(g.siteId), nameEn: g.nameEn, nameFa: g.nameFa, id: g.id }));
+
+  const areas = Core.list("area", { status: "ACTIVE" });
+  MASTER.areas = ["All"].concat(areas.map(a => a.nameEn));
+  MASTER.areaFa = { All: "همه" };
+  areas.forEach(a => { MASTER.areaFa[a.nameEn] = a.nameFa; });
+
+  MASTER.equipment = Core.list("equipment", { status: "ACTIVE" }).map(e => {
+    const type = e.equipmentTypeId ? Core.get("equipmentType", e.equipmentTypeId) : null;
+    const area = e.areaId ? Core.get("area", e.areaId) : null;
+    const grp = e.groupId ? Core.get("group", e.groupId) : null;
+    const doneToday = Core.list("record").some(r =>
+      r.equipmentId === e.id && new Date(r.submittedAt).toDateString() === new Date().toDateString());
+    return {
+      coreId: e.id, tag: e.tagNumber, code: e.equipmentCode,
+      site: siteCode(e.siteId), group: grp ? grp.groupCode : null,
+      nameEn: e.nameEn, nameFa: e.nameFa,
+      type: type ? type.nameEn : "—", typeFa: type ? type.nameFa : "—",
+      area: area ? area.nameEn : "All", unit: e.location || "—", loc: e.location || "—",
+      crit: e.criticality || "MEDIUM", nfc: e.nfcTagId || "",
+      status: doneToday ? "DONE" : "DUE"
+    };
+  });
+}
+
+/* ── UI state ──────────────────────────────────────────────────────────── */
+const S = {
+  screen: "splash", tab: "home",
+  theme: Native.theme(), lang: (localStorage.getItem("lang") || "en"),
+  user: "", pass: "", showPass: false, err: null, errMsg: null, touched: false, session: null,
+  site: "ALL", group: "ALL", syncing: false, lastSync: null, synced: 0, failed: 0,
+  serverUrl: "http://192.168.10.20:8080/api/v1",
+  q: "", area: "All", nfc: Native.nfcState(), unknownUid: null,
+  tag: null, identifiedBy: "SEARCH",
+  values: {}, photos: {}, note: "",
+  blocker: null, dialog: false, saved: null,
+  pending: Native.pending(), mdView: null, done: {}
+};
+const el = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const setS = p => { Object.assign(S, p); render(); };
+
+function applyChrome() {
+  const h = document.documentElement;
+  h.setAttribute("data-theme", S.theme);
+  h.setAttribute("lang", S.lang);
+  h.setAttribute("dir", S.lang === "fa" ? "rtl" : "ltr");
+  Native.setTheme(S.theme);
+  localStorage.setItem("lang", S.lang);
+  if (Core) { Core.theme(S.theme === "night" ? "dark" : "light"); Core.lang(S.lang); }
+}
+const rowsFor = () => MASTER.paramsFor(S.tag);
+const statusOfRow = r => validate(S.values[r.code], r.min, r.max, null, null, r.dataType, r.expectedBool);
+const entered = () => rowsFor().filter(r => statusOfRow(r) !== "NOT_ENTERED").length;
+const abnormal = () => rowsFor().filter(r => ["ABNORMAL", "CRITICAL"].includes(statusOfRow(r))).length;
+const isDirty = () => entered() > 0 || S.note.length > 0;
+const fmt = (n, d) => nums(d === 0 ? String(n) : Number(n).toFixed(d));
+const statusOf = e => S.done[e.tag] ? "DONE" : e.status;
+
+/* ── Icons ─────────────────────────────────────────────────────────────── */
+const ico = {
+  dial: `<svg width="112" height="112" viewBox="0 0 112 112" fill="none" stroke="var(--acc)" stroke-width="1.5"><circle cx="56" cy="56" r="44"/><circle cx="56" cy="56" r="33" opacity=".4"/><circle cx="56" cy="56" r="3.5" fill="var(--acc)" stroke="none"/><line x1="56" y1="12" x2="56" y2="22"/><line x1="56" y1="90" x2="56" y2="100"/><line x1="12" y1="56" x2="22" y2="56"/><line x1="90" y1="56" x2="100" y2="56"/><line x1="56" y1="56" x2="82" y2="38" stroke="var(--ink)" stroke-width="2"/></svg>`,
+  mark: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5"><circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="12" r="1.2" fill="var(--acc)" stroke="none"/><line x1="12" y1="12" x2="17.5" y2="8.4" stroke="var(--ink)"/></svg>`,
+  eye: on => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>${on ? "" : '<line x1="3" y1="21" x2="21" y2="3"/>'}</svg>`,
+  search: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></svg>`,
+  x: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`,
+  nfc: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5"><path d="M5 8a9 9 0 0 0 0 8"/><path d="M9 6a13 13 0 0 0 0 12"/><path d="M13.5 4.5a17 17 0 0 0 0 15"/><path d="M18 3a21 21 0 0 0 0 18"/></svg>`,
+  cam: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8.5h3l1.6-2.2h8.8L18 8.5h3V19H3Z"/><circle cx="12" cy="13.5" r="3.4"/></svg>`,
+  warn: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.5" style="flex:none"><path d="M10.3 3.6 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13.5"/><circle cx="12" cy="17" r=".6" fill="var(--warn)"/></svg>`,
+  check: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><polyline points="4,13 9,18 20,6"/></svg>`,
+  back: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15,5 8,12 15,19"/></svg>`,
+  chev: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="flex:none"><polyline points="9,5 16,12 9,19"/></svg>`,
+  home: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 11 12 4l8 7v9H4Z"/></svg>`,
+  route: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6h6a3.5 3.5 0 0 1 0 7h-5a3.5 3.5 0 0 0 0 5h6"/></svg>`,
+  board: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>`,
+  data: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>`
+};
+
+const chrome = () => `<div class="row" style="gap:6px;flex:none">
+  <button data-act="lang" class="seg" style="padding:7px 10px;font:600 11px/1 var(--body)">${T("langName")}</button>
+  <div class="seg">
+    <button class="${S.theme === "light" ? "on" : ""}" data-act="theme" data-v="light">${S.lang === "fa" ? "روشن" : "LIGHT"}</button>
+    <button class="${S.theme === "night" ? "on" : ""}" data-act="theme" data-v="night">${S.lang === "fa" ? "شب" : "NIGHT"}</button>
+  </div></div>`;
+
+const sitePicker = () => `<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+  ${[{ code: "ALL", label: T("allSites") }].concat(MASTER.sites.map(s => ({ code: s.code, label: s.code + " · " + (S.lang === "fa" ? s.nameFa : s.nameEn) })))
+    .map(s => `<button data-act="site" data-v="${s.code}" style="flex:none;padding:9px 13px;font:500 12.5px/1 var(--body);${S.site === s.code ? "background:var(--acc);border-color:var(--acc);color:var(--btnInk)" : ""}">${esc(s.label)}</button>`).join("")}
+</div>`;
+
+const themeOnly = () => `<div class="seg" style="flex:none">
+  <button class="${S.theme === "light" ? "on" : ""}" data-act="theme" data-v="light">${S.lang === "fa" ? "روشن" : "LIGHT"}</button>
+  <button class="${S.theme === "night" ? "on" : ""}" data-act="theme" data-v="night">${S.lang === "fa" ? "شب" : "NIGHT"}</button></div>`;
+
+const tabs = () => {
+  const items = [["home", T("tabHome"), ico.home], ["search", T("tabRoute"), ico.route],
+                 ["board", T("tabBoard"), ico.board], ["master", T("tabData"), ico.data]];
+  return `<div class="tabs">${items.map(i =>
+    `<button class="${S.tab === i[0] ? "on" : ""}" data-act="tab" data-v="${i[0]}">${i[2]}<span>${esc(i[1])}</span></button>`).join("")}</div>`;
+};
+
+/* ── Screens ───────────────────────────────────────────────────────────── */
+const screens = {
+
+splash: () => `<div class="scroll" style="display:flex;flex-direction:column;justify-content:space-between;padding:52px 30px 34px" data-act="toLogin">
+  <div class="row" style="justify-content:space-between"><span class="kick">${T("brandLine")}</span><span class="kick">${T("rev")}</span></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:30px">
+    <div style="width:152px;height:152px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center">${ico.dial}</div>
+    <div style="text-align:center;width:100%">
+      <div style="white-space:nowrap;font:600 ${S.lang === "fa" ? "29px/1.45" : "38px/1.2"} var(--head)">${T("brand")}</div>
+      <div style="margin-top:9px;font:500 12px/1.6 var(--mono);letter-spacing:${S.lang === "fa" ? "0" : ".2em"};color:var(--acc);font-family:${S.lang === "fa" ? "var(--body)" : "var(--mono)"}">${T("tagline")}</div>
+    </div>
+    <div class="sweep"><i></i></div>
+  </div>
+  <div style="text-align:center">
+    <div class="note">${T("loadingMaster", { eq: nums(MASTER.equipment.length), pa: nums(paramCount()) })}</div>
+    <div class="kick" style="margin-top:8px">${T("tapContinue")}</div>
+  </div></div>`,
+
+login: () => {
+  const missU = S.touched && !S.user.trim(), missP = S.touched && !S.pass;
+  return `<div class="hd row" style="justify-content:space-between">
+    <div class="row">${ico.mark}
+      <div><div style="font:600 17px/1.3 var(--head)">${T("brand")}</div>
+      <div class="kick" style="font-size:9.5px">${T("tagline")}</div></div></div>
+    ${chrome()}</div>
+  <div class="scroll" style="padding:28px 18px 22px;display:flex;flex-direction:column;gap:22px">
+    <div><div class="h1">${T("signIn")}</div>
+      <div class="note" style="margin-top:6px;max-width:330px">${T("signInSub")}</div></div>
+    ${S.err ? `<div class="card bad" style="display:flex;gap:11px">${ico.warn}
+      <div><div style="font:600 15px/1.5 var(--head);color:var(--warn)">${esc(S.errMsg || T("errTitle"))}</div>
+      ${S.errMsg ? "" : `<div style="margin-top:3px;font:400 12.5px/1.6 var(--body);color:var(--warn)">${T("errBody")}</div>`}</div></div>` : ""}
+    <div><label class="kick">${T("username")}</label>
+      <input id="f-user" class="ltr" style="width:100%;height:54px;font-size:17px;padding:0 15px;margin-top:7px;border-color:${missU ? "var(--warn)" : "var(--line)"}"
+        value="${esc(S.user)}" placeholder="${esc(T("userPh"))}" autocapitalize="none" autocorrect="off">
+      ${missU ? `<div style="margin-top:6px;font:400 11.5px/1.6 var(--body);color:var(--warn)">${T("userReq")}</div>` : ""}</div>
+    <div><label class="kick">${T("password")}</label>
+      <div style="position:relative;display:flex;margin-top:7px">
+        <input id="f-pass" class="ltr" type="${S.showPass ? "text" : "password"}" style="flex:1;height:54px;font-size:17px;padding:0 56px 0 15px;border-color:${missP ? "var(--warn)" : "var(--line)"}"
+          value="${esc(S.pass)}" placeholder="••••••••">
+        <button data-act="eye" aria-label="${esc(T("showPass"))}" style="position:absolute;inset-inline-end:1px;top:1px;bottom:1px;width:52px;border:0;display:flex;align-items:center;justify-content:center">${ico.eye(S.showPass)}</button>
+      </div>
+      ${missP ? `<div style="margin-top:6px;font:400 11.5px/1.6 var(--body);color:var(--warn)">${T("passReq")}</div>` : ""}</div>
+    <button class="primary" data-act="login">${T("login")}</button>
+    <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--line)">
+      <div class="row"><span class="dot"></span><span style="font:500 11px/1.6 var(--body);color:var(--muted)">${T("offlinePending", { n: nums(S.pending.length) })}</span></div>
+      <div class="note" style="margin-top:8px">${T("adminNote")} ${T("sharedAccount")}</div>
+    </div></div>`;
+},
+
+home: () => {
+  const scoped = MASTER.equipment.filter(e => MASTER.inSite(e));
+  const total = scoped.length || 1;
+  const done = scoped.filter(e => statusOf(e) === "DONE").length;
+  const due = total - done;
+  const pct = scoped.length ? Math.round(done / scoped.length * 100) : 0;
+  return `<div class="hd row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="h2">${T("todayRoute")}</div>
+        <div class="kick" style="margin-top:3px">${T("shiftLine", { shift: S.session?.shift || "B · 06:00–14:00", code: nums(S.session?.code || "10428") })}</div></div>
+      ${chrome()}</div>
+    <div class="scroll" style="padding:18px 16px">
+      <div class="card">
+        <div class="kick">${T("routeProgress", { done: nums(done), total: nums(total) })}</div>
+        <div style="font:600 44px/1 var(--head);margin-top:8px;direction:ltr;text-align:start">${nums(pct)}<span style="font-size:22px">%</span></div>
+        <div class="bar" style="margin-top:12px"><i style="width:${pct}%;background:var(--acc)"></i></div>
+        <div class="note" style="margin-top:10px">${T("dueNow", { n: nums(due) })}</div>
+        <div class="row" style="margin-top:14px;gap:8px">
+          <button class="primary" style="flex:1;height:54px;width:auto" data-act="tab" data-v="search">${T("openRoute")}</button>
+          <button class="ghost" style="padding:0 18px" data-act="scan">${T("scanTag")}</button>
+        </div>
+      </div>
+
+      <div class="tiles" style="margin-top:18px">
+        ${[[T("bCompleted"), nums(done)], [T("bMissing"), nums(scoped.filter(e => statusOf(e) === "OVERDUE").length)],
+           [T("tPhotos"), nums(Object.keys(S.photos).length)], [T("pendingLabel"), nums(S.pending.length)]]
+          .map(t => `<div><div class="kick" style="font-size:9.5px">${t[0]}</div><div style="font:600 24px/1.2 var(--head);margin-top:6px">${t[1]}</div></div>`).join("")}
+      </div>
+
+      <div style="margin-top:18px">${sitePicker()}</div>
+
+      <button style="width:100%;margin-top:14px;display:flex;align-items:center;gap:11px;padding:14px;text-align:start;background:var(--accSoft);border-color:var(--acc)" data-act="openSync">
+        <span class="dot" style="flex:none"></span>
+        <span style="flex:1;font:500 13.5px/1.6 var(--body)">${S.pending.length ? T("pendingSync", { n: nums(S.pending.length) }) : T("syncedAll")}</span>
+        ${ico.chev}</button>
+
+      <button class="ghost" style="width:100%;margin-top:18px" data-act="signout">${T("signOut")}</button>
+    </div>${tabs()}`;
+},
+
+search: () => {
+  const q = S.q.trim().toLowerCase();
+  const scoped = MASTER.equipment.filter(e => MASTER.inSite(e));
+  const rows = scoped
+    .filter(e => S.group === "ALL" || e.group === S.group)
+    .filter(e => S.area === "All" || e.area === S.area)
+    .filter(e => !q || (e.tag + " " + e.code + " " + e.nameEn + " " + e.nameFa + " " + e.type).toLowerCase().includes(q));
+  const due = scoped.filter(e => statusOf(e) !== "DONE").length;
+  const groups = MASTER.groupsForSite(S.site);
+  const nfcT = S.nfc === "READY" ? "nfcReady" : S.nfc === "DISABLED" ? "nfcOff" : "nfcAbsent";
+  return `<div class="hd row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="h2">${T("selectEquipment")}</div>
+        <div class="kick" style="margin-top:3px">${T("shiftLine", { shift: S.session?.shift || "B · 06:00–14:00", code: nums(S.session?.code || "10428") })}</div></div>
+      ${chrome()}</div>
+    <div class="scroll" style="padding:16px 16px 18px">
+      <div style="position:relative;display:flex">
+        <span style="position:absolute;inset-inline-start:14px;top:0;bottom:0;display:flex;align-items:center">${ico.search}</span>
+        <input id="f-q" style="flex:1;height:56px;font-size:16px;padding-inline:44px 46px" value="${esc(S.q)}"
+          placeholder="${esc(T("searchPh"))}" autocapitalize="characters" autocorrect="off">
+        ${S.q ? `<button data-act="clearq" style="position:absolute;inset-inline-end:1px;top:1px;bottom:1px;width:44px;border:0;display:flex;align-items:center;justify-content:center">${ico.x}</button>` : ""}
+      </div>
+
+      <button data-act="scan" style="width:100%;margin-top:12px;display:flex;align-items:center;gap:12px;padding:13px 14px;text-align:start;background:var(--accSoft);border-color:var(--acc)">
+        ${ico.nfc}<div style="flex:1">
+          <div style="font:600 16px/1.4 var(--head)">${T(nfcT)}</div>
+          <div class="note">${T(nfcT + "Sub")}</div></div></button>
+
+      ${S.unknownUid ? `<div class="card bad" style="margin-top:12px;display:flex;gap:11px">${ico.warn}
+        <div><div style="font:600 15px/1.5 var(--head);color:var(--warn)">${T("unknownTag")}</div>
+        <div class="ltr" style="margin-top:4px;font:500 11.5px/1.4 var(--mono);color:var(--warn)">${T("uid")} ${esc(S.unknownUid)}</div>
+        <div style="margin-top:4px;font:400 12.5px/1.6 var(--body);color:var(--warn)">${T("unknownTagSub")}</div>
+        <button class="ghost" data-act="dismissUid" style="margin-top:10px;padding:0 16px;height:44px;border-color:var(--warn);color:var(--warn)">${T("dismiss")}</button></div></div>` : ""}
+
+      <div style="margin-top:12px">${sitePicker()}</div>
+
+      ${groups.length ? `<div style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;padding-bottom:2px">
+        <button data-act="group" data-v="ALL" style="flex:none;padding:9px 13px;font:500 12.5px/1 var(--body);${S.group === "ALL" ? "background:var(--acc);border-color:var(--acc);color:var(--btnInk)" : ""}">${T("group")}: ${T("areaAll")}</button>
+        ${groups.map(g => `<button data-act="group" data-v="${esc(g.code)}" style="flex:none;padding:9px 13px;font:500 12.5px/1 var(--body);${S.group === g.code ? "background:var(--acc);border-color:var(--acc);color:var(--btnInk)" : ""}">${esc(S.lang === "fa" ? g.nameFa : g.nameEn)}</button>`).join("")}
+      </div>` : ""}
+
+      <div style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;padding-bottom:2px">
+        ${MASTER.areas.map(a => `<button data-act="area" data-v="${esc(a)}" style="flex:none;padding:10px 13px;font:500 12.5px/1 var(--body);${S.area === a ? "background:var(--acc);border-color:var(--acc);color:var(--btnInk)" : ""}">${esc(MASTER.areaName(a))}</button>`).join("")}
+      </div>
+
+      <div class="row" style="justify-content:space-between;margin-top:14px">
+        <span class="kick">${T("countOf", { n: nums(rows.length), total: nums(scoped.length) })}</span>
+        ${rows.length ? `<span class="kick" style="color:var(--acc)">${T("dueWindow", { n: nums(due) })}</span>` : ""}
+      </div>
+
+      ${rows.length ? `<div style="border-top:1px solid var(--line);margin-top:8px">
+        ${rows.map(e => {
+          const st = statusOf(e), over = st === "OVERDUE", doneNow = st === "DONE";
+          const label = doneNow ? T("stComplete") + (e.at ? " " + nums(e.at) : "") : over ? T("stMissingS") : T("stDue");
+          return `<div class="listrow" data-act="open" data-v="${esc(e.tag)}">
+            <div class="plate">${esc(e.tag)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font:500 15px/1.5 var(--body)">${esc(MASTER.eqName(e))}</div>
+              <div class="note" style="font-size:11.5px">${esc(e.site)} · ${esc(MASTER.areaName(e.area))} · ${esc(MASTER.eqType(e))}${e.group ? " · " + esc(MASTER.groupName(e.group)) : ""}</div></div>
+            <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+              <span class="chip ${over ? "bad" : doneNow ? "on" : ""}" style="font-size:9.5px;padding:4px 7px">${esc(label)}</span></div>
+            ${ico.chev}</div>`;
+        }).join("")}</div>`
+      : MASTER.equipment.length === 0
+        ? `<div class="empty">${ico.data}
+            <div class="h2">${T("noMaster")}</div>
+            <div class="note" style="max-width:280px">${T("noMasterSub")}</div></div>`
+        : `<div class="empty">${ico.search}
+            <div class="h2">${T("noMatch", { q: esc(S.q) })}</div>
+            <div class="note" style="max-width:260px">${T("noMatchSub")}</div>
+            <button class="primary" data-act="resetq" style="width:auto;padding:0 22px;height:52px">${T("clearSearch")}</button></div>`}
+    </div>${tabs()}`;
+},
+
+scan: () => `<div class="hd row" style="justify-content:space-between">
+    <button data-act="back" style="border:0;width:40px;height:40px;margin-inline-start:-8px;display:flex;align-items:center;justify-content:center">${ico.back}</button>
+    ${chrome()}</div>
+  <div class="scroll" style="padding:40px 22px;display:flex;flex-direction:column;align-items:center;gap:26px;text-align:center">
+    <div style="position:relative;width:150px;height:150px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line)">
+      <span style="position:absolute;width:80px;height:80px;border:2px solid var(--acc);border-radius:50%;animation:ping 1.8s ease-out infinite"></span>
+      <span style="position:absolute;width:80px;height:80px;border:2px solid var(--acc);border-radius:50%;animation:ping 1.8s ease-out infinite 0.9s"></span>
+      <div style="transform:scale(2)">${ico.nfc}</div>
+    </div>
+    <div><div class="h1">${T("scanTitle")}</div>
+      <div class="note" style="margin-top:8px;max-width:290px">${T("scanSub")}</div></div>
+    ${S.nfc === "READY"
+      ? `<div class="row" style="gap:9px"><span class="dot"></span><span class="kick">${T("scanWaiting")}</span></div>`
+      : `<div class="card bad" style="text-align:start;display:flex;gap:11px;width:100%">${ico.warn}
+          <div><div style="font:600 15px/1.5 var(--head);color:var(--warn)">${T(S.nfc === "DISABLED" ? "nfcOff" : "nfcAbsent")}</div>
+          <div style="margin-top:3px;font:400 12.5px/1.6 var(--body);color:var(--warn)">${T(S.nfc === "DISABLED" ? "nfcOffSub" : "nfcAbsentSub")}</div></div></div>`}
+    <div style="width:100%;display:flex;flex-direction:column;gap:9px;margin-top:auto">
+      ${S.nfc === "DISABLED" ? `<button class="primary" data-act="nfcSettings">${T("openSettings")}</button>` : ""}
+      <button class="ghost" style="width:100%" data-act="tab" data-v="search">${T("useSearch")}</button>
+    </div>
+  </div>`,
+
+entry: () => {
+  const eq = MASTER.byTag(S.tag);
+  if (!eq) { setTimeout(() => setS({ screen: "search", tab: "search" }), 0); return ""; }
+  const rows = rowsFor(), n = Native.now();
+  const meta = [
+    [T("mSite"), MASTER.siteLabel(eq.site)], [T("mGroup"), MASTER.groupName(eq.group) || T("noGroup")],
+    [T("mType"), MASTER.eqType(eq)], [T("mArea"), MASTER.areaName(eq.area)],
+    [T("mUnit"), eq.unit], [T("mLoc"), eq.loc],
+    [T("mDate"), nums(n.date)], [T("mTime"), nums(n.time.slice(0, 5))],
+    [T("mOperator"), S.session?.name || "M. Rahimi"], [T("mPers"), nums(S.session?.code || "10428")],
+    [T("mShift"), S.session?.shift || "B · 06:00–14:00"], [T("mInterval"), T("every2h")]
+  ];
+  return `<div class="hd">
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <button data-act="back" style="flex:none;width:40px;height:40px;margin:-4px 0 0 0;margin-inline-start:-8px;border:0;display:flex;align-items:center;justify-content:center">${ico.back}</button>
+        <div style="flex:1;min-width:0">
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <span class="ltr" style="flex:none;white-space:nowrap;font:600 24px/1.2 var(--head)">${esc(eq.tag)}</span>
+            <span class="chip on" style="flex:none;white-space:nowrap;font-size:9.5px;padding:3px 7px">✓ ${T(S.identifiedBy === "NFC" ? "identifiedNfc" : "identifiedSearch")}</span></div>
+          <div style="font:500 15px/1.5 var(--body)">${esc(MASTER.eqName(eq))}</div>
+          <div dir="${S.lang === "fa" ? "ltr" : "rtl"}" style="font:400 13.5px/1.7 var(--body);color:var(--muted)">${esc(S.lang === "fa" ? eq.nameEn : eq.nameFa)}</div></div>
+        ${themeOnly()}
+      </div>
+      <div class="meta">${meta.map(m => `<div><span>${esc(m[0])}</span><span>${esc(m[1])}</span></div>`).join("")}</div>
+    </div>
+
+    <div class="scroll" style="padding:14px 16px 0">
+      <div class="row" style="justify-content:space-between">
+        <span class="kick">${T("paramsCount", { n: nums(entered()), total: nums(rows.length) })}</span>
+        ${abnormal() ? `<span class="kick" style="color:var(--warn)">${T("abnormalCount", { n: nums(abnormal()) })}</span>` : ""}
+      </div>
+
+      ${S.blocker ? `<div class="card bad" style="margin-top:10px">
+        <div style="font:600 15px/1.5 var(--head);color:var(--warn)">${T("cannotSave")}</div>
+        <div style="margin-top:4px;font:400 12.5px/1.6 var(--body);color:var(--warn)">${esc(S.blocker)}</div></div>` : ""}
+
+      ${rows.length === 0 ? `<div class="empty">${ico.data}
+        <div class="h2">${T("noParams")}</div>
+        <div class="note" style="max-width:280px">${T("noParamsSub")}</div></div>` : ""}
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+      ${rows.map(r => {
+        const raw = S.values[r.code] ?? "", st = statusOfRow(r);
+        const isBool = r.dataType === "BOOLEAN", isText = r.dataType === "TEXT";
+        const bad = st === "ABNORMAL" || st === "CRITICAL", empty = st === "NOT_ENTERED";
+        const label = isBool
+          ? (st === "NORMAL" ? T("stMatches") : bad ? T("stDiffers") : empty ? T("stEmpty") : T("stInvalid"))
+          : T({ CRITICAL: "stCritical", ABNORMAL: "stAbnormal", NORMAL: "stNormal", INVALID: "stInvalid", NOT_ENTERED: "stEmpty" }[st]);
+        const shot = S.photos[r.code], u = MASTER.pUnit(r);
+        const onWord = r.code === "BL-103" ? T("on") : T("yes");
+        const offWord = r.code === "BL-103" ? T("off") : T("no");
+
+        // Data type decides the control — nothing is forced into a numeric field.
+        let control;
+        if (isBool) {
+          const isYes = raw === "true", isNo = raw === "false";
+          control = `<div style="display:flex;gap:9px">
+            <button data-act="bool" data-v="${esc(r.code)}" data-b="true"
+              style="flex:1;height:58px;font:600 18px/1 var(--head);${isYes ? (r.expectedBool === true ? "background:var(--acc);border-color:var(--acc);color:var(--btnInk)" : "background:var(--warn);border-color:var(--warn);color:var(--paper)") : ""}">${onWord}</button>
+            <button data-act="bool" data-v="${esc(r.code)}" data-b="false"
+              style="flex:1;height:58px;font:600 18px/1 var(--head);${isNo ? (r.expectedBool === false ? "background:var(--acc);border-color:var(--acc);color:var(--btnInk)" : "background:var(--warn);border-color:var(--warn);color:var(--paper)") : ""}">${offWord}</button>
+          </div>`;
+        } else if (isText) {
+          control = `<input class="val" data-p="${esc(r.code)}" value="${esc(raw)}" placeholder="${esc(T("textPh"))}"
+            style="width:100%;font:400 16px/1 var(--body);direction:inherit;text-align:start;border-color:${empty ? "var(--line)" : "var(--acc)"}">`;
+        } else {
+          control = `<div class="row" style="align-items:stretch;gap:9px">
+            <input class="val" data-p="${esc(r.code)}" inputmode="decimal" value="${esc(raw)}" placeholder="—"
+              style="border-color:${bad ? "var(--warn)" : empty ? "var(--line)" : "var(--acc)"}">
+            <div class="unit">${esc(u || "—")}</div></div>`;
+        }
+
+        const subline = isBool
+          ? T("expected", { v: r.expectedBool ? onWord : offWord }) + " · " + (r.required ? T("required") : T("optional"))
+          : isText
+            ? (r.required ? T("required") : T("optional"))
+            : T("normalRange", { min: fmt(r.min, r.dec), max: fmt(r.max, r.dec), unit: u ? " " + u : "" }) + " · " + (r.required ? T("required") : T("optional"));
+
+        return `<div class="card ${bad ? "bad" : ""}">
+          <div class="row" style="justify-content:space-between;align-items:baseline">
+            <div style="font:500 15.5px/1.5 var(--body)">${esc(MASTER.pName(r))}</div>
+            <div class="ltr" style="font:500 10.5px/1 var(--mono);color:var(--muted)">${esc(r.code)}</div></div>
+          <div style="margin-top:3px;font:400 11.5px/1.6 var(--body);color:var(--muted)">${esc(subline)}</div>
+          <div style="margin-top:10px">${control}</div>
+          <div class="row" style="margin-top:9px;flex-wrap:wrap;gap:9px">
+            <span class="chip ${bad ? "bad" : empty ? "" : "on"}">${esc(label)}</span>
+            ${r.photo !== "DISABLED" ? `<button data-act="photo" data-v="${esc(r.code)}" style="display:inline-flex;align-items:center;gap:7px;padding:9px 11px;font:500 11.5px/1 var(--body);${r.photo === "REQUIRED" && !shot ? "border-color:var(--warn);color:var(--warn)" : ""}">${ico.cam}${shot ? T("photoAttached") : r.photo === "REQUIRED" ? T("photoRequired") : T("addPhoto")}</button>` : ""}
+          </div>
+          ${bad ? `<div style="margin-top:10px;border-top:1px solid var(--warn);padding-top:9px;display:flex;gap:9px">${ico.warn}
+            <div style="font:400 12.5px/1.6 var(--body);color:var(--warn)"><b>${isBool ? T("boolAbnormal") : T("outOfRange")}</b>
+            ${isBool
+              ? T("boolAbnormalBody", { exp: r.expectedBool ? onWord : offWord, got: raw === "true" ? onWord : offWord })
+              : T("outOfRangeBody", { v: nums(raw), unit: esc(u), min: fmt(r.min, r.dec), max: fmt(r.max, r.dec), unitSuffix: u ? " " + u : "" })}</div></div>` : ""}
+          ${shot ? `<div class="row" style="margin-top:10px;border:1px solid var(--line);padding:8px 10px">
+            <div style="width:38px;height:38px;flex:none;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--acc)">${ico.cam}</div>
+            <div style="flex:1;min-width:0"><div class="ltr" style="font:500 11px/1.4 var(--mono)">${esc(shot.name)}</div>
+            <div class="note" style="font-size:11px">${T("photoOnDevice", { kb: nums(Math.round((shot.bytes || 0) / 1024)) })}</div></div>
+            <button data-act="photo" data-v="${esc(r.code)}" style="flex:none;padding:9px 10px;font:500 11.5px/1 var(--body)">${T("retake")}</button></div>` : ""}
+        </div>`;
+      }).join("")}
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <span class="kick">${T("observation")}</span>
+          <span style="font:500 11px/1 var(--body);color:${S.note.length > 360 ? "var(--warn)" : "var(--muted)"}">${nums(S.note.length)} / ${nums(400)}</span></div>
+        <textarea id="f-note" rows="4" maxlength="400" style="width:100%;resize:none;font:400 14px/1.7 var(--body);padding:12px 13px"
+          placeholder="${esc(T("obsPh"))}">${esc(S.note)}</textarea>
+      </div>
+
+      <div class="sticky" style="margin:18px -16px 0">
+        <button class="primary" data-act="save">${T("saveReading")}</button>
+        <div class="row" style="margin-top:9px"><span class="dot"></span>
+          <span style="font:500 11px/1.6 var(--body);color:var(--muted)">${T("offlineSaves")}</span></div>
+      </div>
+    </div>`;
+},
+
+saved: () => {
+  const r = S.saved;
+  return `<div class="scroll" style="padding:30px 18px 20px;display:flex;flex-direction:column;gap:20px">
+    <div class="row" style="gap:13px">
+      <div style="width:54px;height:54px;flex:none;border:1px solid var(--acc);display:flex;align-items:center;justify-content:center">${ico.check}</div>
+      <div><div style="font:600 26px/1.3 var(--head)">${T("savedTitle")}</div>
+        <div class="ltr" style="font:500 11px/1.5 var(--mono);color:var(--muted)">REC ${esc(String(r.id).slice(0, 8))} · ${esc(r.equipmentTag)} · ${esc(r.savedTime)}</div></div></div>
+    <div class="tiles">
+      ${[[T("tParams"), nums(r.readings.length) + " / " + nums(r.expected), ""],
+         [T("tAbnormal"), r.abnormal ? nums(r.abnormal) : T("none"), r.abnormal ? "color:var(--warn)" : ""],
+         [T("tPhotos"), nums(r.photos.length), ""], [T("tSaved"), nums(r.savedTime), ""]]
+        .map(t => `<div><div class="kick" style="font-size:9.5px">${t[0]}</div><div style="font:600 20px/1.3 var(--head);margin-top:6px;${t[2]}">${t[1]}</div></div>`).join("")}
+    </div>
+    <div style="border:1px solid var(--acc);background:var(--accSoft);padding:13px 14px;display:flex;gap:11px">
+      <span class="dot" style="margin-top:5px;flex:none"></span>
+      <div><div style="font:600 15px/1.5 var(--head)">${T("savedLocal")}</div>
+        <div class="note" style="margin-top:3px">${T("savedLocalSub", { n: nums(S.pending.length) })}</div></div></div>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:9px">
+      <button class="primary" data-act="next">${T("nextEquipment")}</button>
+      <button class="ghost" data-act="reopen">${T("viewRecord")}</button></div></div>`;
+},
+
+board: () => {
+  const eqs = MASTER.equipment.filter(e => MASTER.inSite(e));
+  const done = eqs.filter(e => statusOf(e) === "DONE").length;
+  const missing = eqs.filter(e => statusOf(e) === "OVERDUE").length;
+  const late = 1, expected = eqs.length;
+  return `<div class="hd row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="h2">${T("boardTitle")}</div>
+        <div class="kick" style="margin-top:3px">${T("boardSub", { shift: S.session?.shift || "B" })} · ${esc(S.site === "ALL" ? T("allSites") : MASTER.siteLabel(S.site))}</div></div>
+      ${chrome()}</div>
+    <div class="scroll" style="padding:16px">
+      <div style="margin-bottom:14px">${sitePicker()}</div>
+      <div class="tiles">
+        ${[[T("bExpected"), nums(expected), ""], [T("bCompleted"), nums(done), "color:var(--acc)"],
+           [T("bMissing"), nums(missing), missing ? "color:var(--warn)" : ""], [T("bLate"), nums(late), "color:var(--warn)"]]
+          .map(t => `<div><div class="kick" style="font-size:9.5px">${t[0]}</div><div style="font:600 26px/1.2 var(--head);margin-top:6px;${t[2]}">${t[1]}</div></div>`).join("")}
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="kick">${T("bAbnormal")}</div>
+        <div class="row" style="margin-top:10px;gap:12px;align-items:baseline">
+          <span style="font:600 34px/1 var(--head);color:var(--warn)">${nums(3)}</span>
+          <span class="note" style="flex:1">CT-006 · PT-001 · VB-104</span></div>
+      </div>
+
+      <div class="kick" style="margin:20px 0 8px">${T("bEquipment")}</div>
+      <div style="border-top:1px solid var(--line)">
+      ${eqs.map((e, i) => {
+        const st = statusOf(e), rows = MASTER.paramsFor(e.tag).length;
+        const got = st === "DONE" ? rows : st === "OVERDUE" ? 0 : Math.max(0, rows - 3 - (i % 3));
+        const mark = st === "DONE" ? "✓" : st === "OVERDUE" ? "✕" : "⚠";
+        const col = st === "DONE" ? "var(--acc)" : st === "OVERDUE" ? "var(--warn)" : "var(--muted)";
+        const label = st === "DONE" ? T("stComplete") : st === "OVERDUE" ? T("stMissingS") : T("stDue");
+        return `<div style="display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line)">
+          <span style="flex:none;width:22px;font:600 17px/1 var(--head);color:${col}">${mark}</span>
+          <div class="plate" style="width:62px">${esc(e.tag)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font:500 14px/1.5 var(--body)">${esc(MASTER.eqName(e))}</div>
+            <div class="bar" style="margin-top:6px;height:4px"><i style="width:${rows ? Math.round(got / rows * 100) : 0}%;background:${col}"></i></div>
+          </div>
+          <div style="flex:none;text-align:end">
+            <div style="font:600 11px/1.4 var(--body);color:${col}">${esc(label)}</div>
+            <div class="note" style="font-size:10.5px">${T("paramLevel", { done: nums(got), total: nums(rows) })}</div></div>
+        </div>`;
+      }).join("")}
+      </div>
+    </div>${tabs()}`;
+},
+
+master: () => {
+  if (S.mdView === "equipment") return mdList(T("equipmentList"), MASTER.equipment.map(e => ({
+    plate: e.tag, title: MASTER.eqName(e), sub: `${MASTER.areaName(e.area)} · ${e.code}`, right: e.nfc.slice(-6), rightSub: "NFC"
+  })));
+  if (S.mdView === "parameters") {
+    const all = [];
+    Object.keys(MASTER.params).forEach(k => MASTER.params[k].forEach(p => { if (!all.find(x => x.code === p.code)) all.push(p); }));
+    return mdList(T("parameterList"), all.map(p => ({
+      plate: p.code, title: MASTER.pName(p),
+      sub: `${fmt(p.min, p.dec)} – ${fmt(p.max, p.dec)} ${MASTER.pUnit(p)}`,
+      right: p.photo === "REQUIRED" ? T("required") : p.photo === "OPTIONAL" ? T("optional") : "—", rightSub: T("tPhotos")
+    })));
+  }
+  if (S.mdView === "sync") return screens.sync();
+  const cards = [
+    ["equipment", T("mdEquipment"), T("mdEquipmentSub", { n: nums(MASTER.equipment.length) })],
+    ["parameters", T("mdParameters"), T("mdParametersSub", { n: nums(20) })],
+    ["sync", T("syncTitle"), T("mdSyncSub", { n: nums(S.pending.length) })]
+  ];
+  return `<div class="hd row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="h2">${T("masterTitle")}</div><div class="kick" style="margin-top:3px">${T("readOnly")}</div></div>
+      ${chrome()}</div>
+    <div class="scroll" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      ${cards.map(c => `<button class="card" style="display:flex;align-items:center;gap:12px;text-align:start;width:100%" data-act="md" data-v="${c[0]}">
+        <div style="flex:1"><div style="font:600 18px/1.4 var(--head)">${esc(c[1])}</div>
+        <div class="note" style="margin-top:2px">${esc(c[2])}</div></div>${ico.chev}</button>`).join("")}
+    </div>${tabs()}`;
+}
+};
+
+screens.sync = () => {
+  const items = S.pending;
+  const failedItems = items.filter(p => p.state === "FAILED");
+  return `${mdHead(T("syncTitle"))}
+    <div class="scroll" style="padding:16px">
+      <div class="card">
+        <div class="kick">${T("syncSub", { url: "" })}</div>
+        <div class="ltr" style="margin-top:4px;font:500 12px/1.5 var(--mono);word-break:break-all">${esc(S.serverUrl)}</div>
+        <div class="note" style="margin-top:6px">${T("serverUrlSub")}</div>
+      </div>
+
+      <div class="tiles" style="margin-top:16px">
+        <div><div class="kick" style="font-size:9.5px">${T("sPending")}</div>
+          <div style="font:600 28px/1.2 var(--head);margin-top:6px">${nums(items.filter(p => p.state !== "FAILED").length)}</div></div>
+        <div><div class="kick" style="font-size:9.5px">${T("sSynced")}</div>
+          <div style="font:600 28px/1.2 var(--head);margin-top:6px;color:var(--acc)">${nums(S.synced)}</div></div>
+        <div><div class="kick" style="font-size:9.5px">${T("sFailed")}</div>
+          <div style="font:600 28px/1.2 var(--head);margin-top:6px;${failedItems.length ? "color:var(--warn)" : ""}">${nums(failedItems.length)}</div></div>
+        <div><div class="kick" style="font-size:9.5px">${T("tPhotos")}</div>
+          <div style="font:600 28px/1.2 var(--head);margin-top:6px">${nums(Object.keys(S.photos).length)}</div></div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <span class="dot"></span>
+        <span style="font:500 11px/1.6 var(--body);color:var(--muted)">${S.lastSync ? T("lastSync", { t: nums(S.lastSync) }) : T("neverSynced")}</span>
+      </div>
+
+      <button class="primary" style="margin-top:14px" data-act="doSync" ${S.syncing ? "disabled" : ""}>${S.syncing ? T("syncing") : T("syncNow")}</button>
+      ${S.syncing ? `<div class="sweep" style="width:100%;margin-top:10px"><i></i></div>` : ""}
+      ${failedItems.length ? `<button class="ghost" style="width:100%;margin-top:9px;border-color:var(--warn);color:var(--warn)" data-act="retryFailed">${T("retryAll")}</button>` : ""}
+
+      ${items.length ? `<div class="kick" style="margin:20px 0 8px">${T("syncQueue")}</div>
+        <div style="border-top:1px solid var(--line)">${items.map(p => {
+          const failed = p.state === "FAILED";
+          return `<div class="listrow">
+            <div class="plate">${esc(p.tag || "—")}</div>
+            <div style="flex:1;min-width:0">
+              <div class="ltr" style="font:500 12.5px/1.5 var(--mono)">${esc(String(p.id || "").slice(0, 13))}</div>
+              <div class="note" style="font-size:11px">${esc(p.reason || new Date(p.submittedAt || Date.now()).toLocaleString())}</div></div>
+            <span class="chip ${failed ? "bad" : ""}">${failed ? T("stateFailed") : T("pendingLabel")}</span></div>`;
+        }).join("")}</div>`
+      : `<div class="empty">${ico.check}<div class="h2">${T("syncQueueEmpty")}</div>
+          <div class="note" style="max-width:260px">${T("syncQueueEmptySub")}</div></div>`}
+    </div>${tabs()}`;
+};
+
+function mdHead(title) {
+  return `<div class="hd row" style="justify-content:space-between">
+    <div class="row"><button data-act="mdBack" style="border:0;width:40px;height:40px;margin-inline-start:-8px;display:flex;align-items:center;justify-content:center">${ico.back}</button>
+      <div class="h2">${esc(title)}</div></div>${chrome()}</div>`;
+}
+function mdList(title, items) {
+  return `${mdHead(title)}<div class="scroll" style="padding:16px">
+    <div style="border-top:1px solid var(--line)">
+    ${items.map(i => `<div class="listrow">
+      <div class="plate">${esc(i.plate)}</div>
+      <div style="flex:1;min-width:0"><div style="font:500 14.5px/1.5 var(--body)">${esc(i.title)}</div>
+        <div class="note" style="font-size:11.5px">${esc(i.sub)}</div></div>
+      <div style="flex:none;text-align:end"><div class="ltr" style="font:500 11.5px/1.4 var(--mono)">${esc(i.right)}</div>
+        <div class="note" style="font-size:10px">${esc(i.rightSub)}</div></div></div>`).join("")}
+    </div></div>${tabs()}`;
+}
+
+function dialogHtml() {
+  if (!S.dialog) return "";
+  return `<div class="modal"><div class="sheet">
+    <div style="font:600 23px/1.35 var(--head)">${T("unsaved")}</div>
+    <div class="note" style="margin-top:7px">${T("unsavedSub", { n: nums(entered()), total: nums(rowsFor().length) })}</div>
+    <div style="margin-top:17px;display:flex;flex-direction:column;gap:8px">
+      <button class="primary" style="height:52px" data-act="continue">${T("continueEditing")}</button>
+      <div style="display:flex;gap:8px">
+        <button class="ghost" style="flex:1;height:50px" data-act="save">${T("save")}</button>
+        <button class="ghost" style="flex:1;height:50px;border-color:var(--warn);color:var(--warn)" data-act="discard">${T("discard")}</button>
+      </div></div></div></div>`;
+}
+
+/* ── Render, preserving focus and caret ────────────────────────────────── */
+function render() {
+  const a = document.activeElement;
+  const key = a && (a.id || a.dataset.p) ? (a.id || "p:" + a.dataset.p) : null;
+  const caret = key && a.selectionStart != null ? a.selectionStart : null;
+  const sc = el.querySelector(".scroll");
+  const top = sc ? sc.scrollTop : 0;
+
+  el.innerHTML = screens[S.screen]() + dialogHtml();
+
+  const ns = el.querySelector(".scroll");
+  if (ns) ns.scrollTop = top;
+  if (key) {
+    const next = key.startsWith("p:") ? el.querySelector(`[data-p="${key.slice(2)}"]`) : el.querySelector("#" + key);
+    if (next) { next.focus(); if (caret != null && next.setSelectionRange) try { next.setSelectionRange(caret, caret); } catch (e) {} }
+  }
+}
+
+/* ── Actions ───────────────────────────────────────────────────────────── */
+// Authentication is the shared store's, not the app's — the same account and
+// the same password as the web panel, and a deactivated user is refused here.
+function doLogin() {
+  if (!S.user.trim() || !S.pass) return setS({ touched: true, err: null });
+  if (!Core) return setS({ touched: true, err: "bad", errMsg: null });
+  let sess;
+  try {
+    sess = Core.login(S.user, S.pass);
+  } catch (e) {
+    return setS({ touched: true, err: "bad", errMsg: S.lang === "fa" ? e.messageFa : e.message });
+  }
+  if (sess.permissions.indexOf("ENTER_READING") < 0 && sess.roleCode !== "ADMINISTRATOR") {
+    Core.logout();
+    return setS({ touched: true, err: "bad",
+      errMsg: S.lang === "fa" ? "این کاربر اجازه ثبت داده ندارد." : "This account cannot record readings." });
+  }
+  const shift = sess.shiftId ? Core.get("shift", sess.shiftId) : null;
+  const session = {
+    code: sess.personnelCode,
+    name: S.lang === "fa" ? sess.fullNameFa : sess.fullNameEn,
+    shift: shift ? shift.shiftCode + " · " + shift.startTime + "–" + shift.endTime : "—",
+    mustChange: sess.mustChangePassword
+  };
+  Native.setSessionUser(session.code, sess.fullNameEn, session.shift);
+  Native.tick();
+  syncMasterFromCore();
+  setS({ session, err: null, errMsg: null, touched: false, pass: "",
+         screen: "home", tab: "home", pending: corePending() });
+}
+
+function corePending() {
+  if (!Core) return Native.pending();
+  return Core.pendingRecords().map(r => ({
+    id: r.id, tag: r.equipmentTag, submittedAt: Date.parse(r.submittedAt) || Date.now(),
+    state: r.syncState, reason: r.syncReason || null
+  }));
+}
+function openEquipment(tag, by) {
+  setS({ tag, identifiedBy: by || "SEARCH", values: {}, photos: {}, note: "",
+         blocker: null, screen: "entry", unknownUid: null });
+}
+function doSave() {
+  const rows = rowsFor();
+  if (!rows.length) { Native.toast(T("noParams")); return; }
+  const guard = submitGuard(rows, S);
+  if (!guard.ok) {
+    const sc = el.querySelector(".scroll"); if (sc) sc.scrollTop = 0;
+    return setS({ blocker: guard.message, dialog: false });
+  }
+  const eq = MASTER.byTag(S.tag), n = Native.now();
+  // Snapshot columns match ops.ParameterReading, so the server stores the
+  // configuration each value was judged against.
+  const readings = rows.filter(r => statusOfRow(r) !== "NOT_ENTERED").map(r => ({
+    parameterCode: r.code, parameterId: r.parameterId || null,
+    equipmentParameterId: r.epId || null, dataType: r.dataType,
+    rawValue: S.values[r.code],
+    numericValue: r.dataType === "NUMERIC" ? Number(S.values[r.code]) : null,
+    boolValue: r.dataType === "BOOLEAN" ? S.values[r.code] === "true" : null,
+    unitSymbol: r.unit || null, normalMin: r.min ?? null, normalMax: r.max ?? null,
+    expectedBool: r.expectedBool ?? null,
+    validationStatus: statusOfRow(r),
+    photo: S.photos[r.code] ? S.photos[r.code].path : null, recordedAt: n.epochMillis
+  }));
+  const payload = {
+    equipmentTag: eq.tag, equipmentCode: eq.code, equipmentNameEn: eq.nameEn, equipmentNameFa: eq.nameFa,
+    siteCode: eq.site, equipmentGroupCode: eq.group,
+    area: eq.area, identifiedBy: S.identifiedBy,
+    personnelCode: S.session?.code, personnelName: "M. Rahimi", shift: S.session?.shift,
+    observation: S.note, readings,
+    photos: Object.keys(S.photos).map(k => ({ parameterCode: k, ...S.photos[k] })),
+    expected: rows.length, abnormal: abnormal(), savedTime: n.time
+  };
+  let stored;
+  if (Core) {
+    stored = Core.saveRecord(Object.assign({}, payload, {
+      equipmentId: eq.coreId || null,
+      readings: readings.map(r => ({
+        parameterCode: r.parameterCode, parameterId: r.parameterId || null,
+        equipmentParameterId: r.equipmentParameterId || null,
+        rawValue: r.rawValue, numericValue: r.numericValue, boolValue: r.boolValue,
+        unitSymbol: r.unitSymbol, normalMin: r.normalMin, normalMax: r.normalMax,
+        validationStatus: r.validationStatus, recordedAt: r.recordedAt
+      }))
+    }));
+    Native.saveRecord(payload);            // also stage it in app-private storage
+  } else {
+    stored = Native.saveRecord(payload);
+  }
+  Native.clearDraft();
+  Native.tick();
+  const done = { ...S.done }; done[eq.tag] = true;
+  syncMasterFromCore();
+  const pending = corePending();
+  const queued = S.pending.concat([{ id: stored.id, tag: eq.tag, submittedAt: Date.now(), state: "PENDING" }]);
+  setS({ saved: { ...payload, ...stored }, screen: "saved", dialog: false, blocker: null, done,
+         pending: pending.length ? pending.map(p => ({ ...p, state: p.state || "PENDING" })) : queued });
+}
+
+/* Mirrors §H of the architecture: open batch → push records → push photos →
+   pull master-data delta → close. Records leave the queue only on ACCEPTED or
+   DUPLICATE; the client UUID is what makes a retry a no-op on the server.     */
+function doSync() {
+  if (S.syncing) return;
+  const queue = S.pending.filter(p => p.state !== "SYNCED");
+  if (!queue.length) { Native.toast(T("syncQueueEmpty")); return; }
+  setS({ syncing: true });
+
+  // Stage 1 will POST to S.serverUrl. Until the API exists, the outcome is
+  // simulated so the queue, states and retry path are exercisable on-device.
+  setTimeout(() => {
+    const now = Native.now();
+    const accepted = queue.filter((_, i) => i % 7 !== 6);          // one in seven fails
+    const failed = queue.filter((_, i) => i % 7 === 6)
+                        .map(p => ({ ...p, state: "FAILED", reason: T("syncNoNet") }));
+    if (Core) {
+      Core.markSynced(accepted.map(p => p.id));
+      if (failed.length) Core.markFailed(failed.map(p => p.id), T("syncNoNet"));
+    }
+    Native.audit("SYNC_COMPLETED", String(accepted.length));
+    Native.tick();
+    setS({
+      syncing: false,
+      pending: Core ? corePending() : failed,
+      synced: S.synced + accepted.length,
+      failed: failed.length,
+      lastSync: now.date + " " + now.time.slice(0, 5)
+    });
+    Native.toast(T("syncDone", { n: accepted.length }));
+  }, 1400);
+}
+
+el.addEventListener("click", e => {
+  const t = e.target.closest("[data-act]");
+  if (!t) return;
+  const act = t.dataset.act, v = t.dataset.v;
+  switch (act) {
+    case "toLogin": setS({ screen: "login" }); break;
+    case "theme": S.theme = v; applyChrome(); render(); break;
+    case "lang": S.lang = S.lang === "en" ? "fa" : "en"; applyChrome(); render(); break;
+    case "eye": setS({ showPass: !S.showPass }); break;
+    case "login": doLogin(); break;
+    case "signout":
+      if (Core) Core.logout();
+      setS({ screen: "login", session: null, user: "", pass: "", touched: false, err: null, errMsg: null });
+      break;
+    case "tab": setS({ tab: v, screen: v, mdView: null }); break;
+    case "md": setS({ mdView: v }); break;
+    case "mdBack": setS({ mdView: null }); break;
+    case "scan": setS({ screen: "scan" }); break;
+    case "nfcSettings": Native.openNfcSettings(); break;
+    case "clearq": setS({ q: "" }); break;
+    case "resetq": setS({ q: "", area: "All" }); break;
+    case "area": setS({ area: v }); break;
+    case "site": setS({ site: v, group: "ALL", area: "All" }); break;
+    case "group": setS({ group: v }); break;
+    case "bool": {
+      const code = v, next = t.dataset.b;
+      const cur = S.values[code];
+      S.values[code] = cur === next ? "" : next;   // tapping the chosen answer clears it
+      S.blocker = null;
+      Native.saveDraft({ tag: S.tag, values: S.values, note: S.note });
+      render();
+      break;
+    }
+    case "openSync": setS({ tab: "master", screen: "master", mdView: "sync" }); break;
+    case "doSync": doSync(); break;
+    case "retryFailed": setS({ pending: S.pending.map(p => ({ ...p, state: "PENDING", reason: null })) }); doSync(); break;
+    case "open": openEquipment(v, "SEARCH"); break;
+    case "dismissUid": setS({ unknownUid: null }); break;
+    case "photo": Native.capturePhoto(v); break;
+    case "save": doSave(); break;
+    case "back":
+      if (S.screen === "scan") { setS({ screen: S.tab }); break; }
+      if (isDirty()) { const sc = el.querySelector(".scroll"); if (sc) sc.scrollTop = 0; setS({ dialog: true }); }
+      else setS({ screen: "search", tab: "search", values: {}, photos: {}, note: "", blocker: null });
+      break;
+    case "continue": setS({ dialog: false }); break;
+    case "discard": Native.clearDraft(); setS({ dialog: false, values: {}, photos: {}, note: "", blocker: null, screen: "search", tab: "search" }); break;
+    case "next": setS({ screen: "search", tab: "search", values: {}, photos: {}, note: "", blocker: null, saved: null }); break;
+    case "reopen": setS({ screen: "entry", blocker: null }); break;
+  }
+});
+
+el.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "f-user") { S.user = t.value; return; }
+  if (t.id === "f-pass") { S.pass = t.value; return; }
+  if (t.id === "f-q") { S.q = t.value; render(); return; }
+  if (t.id === "f-note") { S.note = t.value.slice(0, 400); Native.saveDraft({ tag: S.tag, values: S.values, note: S.note }); render(); return; }
+  if (t.dataset.p) {
+    const row = rowsFor().find(r => r.code === t.dataset.p);
+    if (row && row.dataType === "TEXT") {
+      S.values[t.dataset.p] = t.value.slice(0, 200);
+      Native.saveDraft({ tag: S.tag, values: S.values, note: S.note });
+      render();
+      return;
+    }
+    // Normalize Persian digits, filter characters — never reformat or round.
+    let clean = t.value.replace(/[۰-۹]/g, d => String(FA_D.indexOf(d)))
+                       .replace(/[٫،]/g, ".")
+                       .replace(/[^0-9.\-]/g, "");
+    if (row && row.min >= 0) clean = clean.replace(/-/g, "");
+    const parts = clean.split(".");
+    if (parts.length > 2) clean = parts[0] + "." + parts.slice(1).join("");
+    S.values[t.dataset.p] = clean;
+    Native.saveDraft({ tag: S.tag, values: S.values, note: S.note });
+    render();
+  }
+});
+
+/* ── Native → JS callbacks ─────────────────────────────────────────────── */
+window.SepehranNative = {
+  onNfcTag(payload) {
+    if (S.screen === "splash" || S.screen === "login") { Native.toast(T("signIn")); return; }
+    const eq = MASTER.byNfc(payload.uid);
+    if (!eq) { setS({ screen: "search", tab: "search", unknownUid: payload.uid }); return; }
+    if (S.site !== "ALL" && eq.site !== S.site) S.site = eq.site;   // follow the tag
+    openEquipment(eq.tag, "NFC");
+  },
+  onNfcAvailability(p) { setS({ nfc: p.state }); },
+  onPhotoCaptured(p) { S.photos[p.token] = { name: p.name, path: p.path, bytes: p.bytes, sha256: p.sha256 }; S.blocker = null; render(); },
+  onPhotoCancelled() { Native.toast(T("addPhoto")); },
+  onPhotoDenied() { Native.toast(T("photoRequired")); },
+  onBackPressed() {
+    if (S.dialog) { setS({ dialog: false }); return true; }
+    if (S.screen === "scan") { setS({ screen: S.tab }); return true; }
+    if (S.mdView) { setS({ mdView: null }); return true; }
+    if (S.screen === "entry") {
+      if (isDirty()) { setS({ dialog: true }); return true; }
+      setS({ screen: "search", tab: "search" }); return true;
+    }
+    if (S.screen === "saved") { setS({ screen: "search", tab: "search", saved: null }); return true; }
+    if (S.screen !== "home" && S.screen !== "login" && S.screen !== "splash") { setS({ screen: "home", tab: "home" }); return true; }
+    if (S.screen === "login") { setS({ screen: "splash" }); return true; }
+    return false;   // home exits the app
+  }
+};
+
+// Boot: adopt the shared store's theme/language, pull master data, and restore
+// a live session so the operator is not asked to sign in twice.
+if (Core) {
+  S.theme = Core.theme() === "dark" ? "night" : Core.theme() === "night" ? "night" : "light";
+  S.lang = Core.lang();
+  syncMasterFromCore();
+  const live = Core.session();
+  if (live) {
+    const shift = live.shiftId ? Core.get("shift", live.shiftId) : null;
+    S.session = {
+      code: live.personnelCode,
+      name: S.lang === "fa" ? live.fullNameFa : live.fullNameEn,
+      shift: shift ? shift.shiftCode + " · " + shift.startTime + "–" + shift.endTime : "—"
+    };
+    S.screen = "home"; S.tab = "home";
+  }
+  S.pending = corePending();
+  // A change made in the web panel (new equipment, deactivated user) shows here.
+  window.addEventListener("storage", ev => {
+    if (!ev.key || ev.key.indexOf("sepehran.") !== 0) return;
+    syncMasterFromCore();
+    if (S.session && !Core.session()) {
+      S.session = null; S.screen = "login";
+      S.errMsg = S.lang === "fa" ? "دسترسی این حساب لغو شده است." : "This account has been deactivated.";
+      S.err = "bad";
+    }
+    S.pending = corePending();
+    render();
+  });
+}
+
+applyChrome();
+render();
+</script>
+</body>
+</html>

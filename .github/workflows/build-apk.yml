@@ -1,5 +1,13 @@
 name: Build APK
 
+# Builds SepehranLogger-debug.apk in the cloud — no Android Studio needed.
+# Run it from the Actions tab (Run workflow), then download the artifact.
+#
+# This installs the exact SDK components the build needs and accepts all
+# licenses non-interactively up front, instead of relying on Gradle's
+# on-demand auto-download (which can silently produce a broken/incomplete
+# build when license acceptance or a component download is interrupted).
+
 on:
   push:
     branches: [main, master]
@@ -8,6 +16,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/lib/android/sdk
+
     steps:
       - uses: actions/checkout@v4
 
@@ -17,14 +29,40 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept all SDK licenses
+        run: |
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+      - name: Install required SDK packages
+        run: |
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Create debug signing key (so the APK installs cleanly)
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkey -v -keystore ~/.android/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Verify the APK is a valid zip
+        run: |
+          FILE=app/build/outputs/apk/debug/SepehranLogger-debug.apk
+          test -s "$FILE"
+          ls -la "$FILE"
+          unzip -l "$FILE" | grep -q AndroidManifest.xml
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

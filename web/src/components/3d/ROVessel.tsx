@@ -118,10 +118,11 @@ export default function ROVessel() {
         radius={0.14}
       />
 
-      {/* Support saddles for an engineered, grounded look */}
+      {/* Support saddles for an engineered, grounded look -- small enough to
+          read as a base detail, not compete with the vessel body itself. */}
       {[-2.6, 2.6].map((x) => (
-        <mesh key={x} position={[x, -VESSEL_RADIUS - 0.55, 0]} receiveShadow>
-          <boxGeometry args={[0.5, 1.1, VESSEL_RADIUS * 1.7]} />
+        <mesh key={x} position={[x, -VESSEL_RADIUS - 0.32, 0]} receiveShadow>
+          <boxGeometry args={[0.32, 0.64, VESSEL_RADIUS * 1.3]} />
           <meshStandardMaterial color={COLORS.vesselMetalDark} metalness={0.6} roughness={0.6} />
         </mesh>
       ))}

@@ -15,34 +15,43 @@ import { scaleCount } from '../../animation/qualityStore';
 export default function ROVessel() {
   const groupRef = useRef<THREE.Group>(null);
   const shellMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const capMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const domeMatRefs = useRef<THREE.MeshStandardMaterial[]>([]);
 
-  const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, -1, 0), VESSEL_RADIUS + 0.5), []);
+  // Fixed clip direction, tilted slightly toward +Z for a more dynamic cut
+  // line than a perfectly horizontal one. Per the three.js clipping-plane
+  // contract, a fragment at world point P is DISCARDED when
+  // `normal.dot(P) + constant > 0` -- i.e. everything on the +normal side of
+  // the plane `normal.dot(P) = threshold` is removed once constant = -threshold.
+  const clipNormal = useMemo(() => new THREE.Vector3(0, 1, 0.18).normalize(), []);
+  const clipPlane = useMemo(() => new THREE.Plane(clipNormal.clone(), -(VESSEL_RADIUS + 0.6)), [clipNormal]);
 
   useFrame(() => {
     const p = getProgress();
     const state = evaluateVesselState(p);
     if (groupRef.current) groupRef.current.rotation.x = state.rotationY;
 
-    // Rotate the clip plane's normal around X to "open" the shell like a
-    // hinged cutaway, and pull its offset in from clear-of-geometry toward
-    // the axis as cutawayAngle increases. The open (clipped-away) wedge
-    // faces +Y / +Z -- the side every interior camera keyframe approaches
-    // from -- so the camera always looks through the opening, never at the
-    // still-solid remainder of the shell.
+    // threshold = how far along +normal the cut sits. Closed: threshold is
+    // pushed well outside the shell radius so nothing is discarded. Open:
+    // threshold drops to just below the vessel's central axis, so the
+    // entire upper wedge -- the side every interior camera keyframe
+    // approaches from -- is removed and the camera always looks through
+    // the opening, never at the still-solid remainder of the shell.
     const openT = THREE.MathUtils.clamp(state.cutawayAngle / (Math.PI * 1.35), 0, 1);
-    const hingeAngle = THREE.MathUtils.degToRad(-18) - openT * THREE.MathUtils.degToRad(150);
-    const normal = new THREE.Vector3(0, Math.cos(hingeAngle), Math.sin(hingeAngle));
-    clipPlane.normal.copy(normal).negate();
-    clipPlane.constant = THREE.MathUtils.lerp(VESSEL_RADIUS + 0.6, -0.02, openT);
+    const threshold = THREE.MathUtils.lerp(VESSEL_RADIUS + 0.6, -0.05, openT);
+    clipPlane.constant = -threshold;
 
     if (shellMatRef.current) {
       shellMatRef.current.opacity = state.shellOpacity;
       shellMatRef.current.clippingPlanes = [clipPlane];
     }
-    if (capMatRef.current) {
-      capMatRef.current.opacity = state.shellOpacity;
-    }
+    // The domed heads must clip in sync with the shell -- otherwise they
+    // stay permanently solid and can physically block the camera's view of
+    // the membrane elements near the vessel ends once the shell "opens".
+    domeMatRefs.current.forEach((m) => {
+      if (!m) return;
+      m.opacity = state.shellOpacity;
+      m.clippingPlanes = [clipPlane];
+    });
   });
 
   const shellLength = VESSEL_LENGTH - VESSEL_HEAD_LENGTH * 0.3;
@@ -51,8 +60,11 @@ export default function ROVessel() {
 
   return (
     <group ref={groupRef}>
-      {/* Main cylindrical shell */}
-      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+      {/* Main cylindrical shell. depthWrite is off (same reasoning as the
+          membrane layers): a transparent material still writes depth by
+          default, and even a sliver of un-clipped shell near the cutaway
+          edge was enough to block the whole interior view behind it. */}
+      <mesh rotation={[0, 0, Math.PI / 2]} renderOrder={-1} castShadow receiveShadow>
         <cylinderGeometry args={[VESSEL_RADIUS, VESSEL_RADIUS, shellLength, shellSegments, 1, true]} />
         <meshStandardMaterial
           ref={shellMatRef}
@@ -62,28 +74,34 @@ export default function ROVessel() {
           envMapIntensity={1.4}
           side={THREE.DoubleSide}
           transparent
+          depthWrite={false}
           clippingPlanes={[clipPlane]}
           clipShadows
         />
       </mesh>
 
       {/* Rounded heads (domed end caps) */}
-      {[-1, 1].map((dir) => (
+      {[-1, 1].map((dir, i) => (
         <mesh
           key={dir}
           position={[dir * (shellLength / 2), 0, 0]}
           rotation={[0, 0, dir > 0 ? -Math.PI / 2 : Math.PI / 2]}
+          renderOrder={-1}
           castShadow
           receiveShadow
         >
           <sphereGeometry args={[VESSEL_RADIUS, capSegments, capSegments / 2, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial
-            ref={dir === 1 ? capMatRef : undefined}
+            ref={(m) => {
+              if (m) domeMatRefs.current[i] = m;
+            }}
             color={COLORS.vesselMetalDark}
             metalness={0.5}
             roughness={0.42}
             envMapIntensity={1.4}
             transparent
+            depthWrite={false}
+            clipShadows
           />
         </mesh>
       ))}

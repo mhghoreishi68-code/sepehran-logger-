@@ -38,9 +38,12 @@ function CameraRig() {
     // Frame-rate-independent damping: convergence depends on elapsed time,
     // not on how many frames happened to render, so the cinematic follow
     // feels the same at 30fps, 60fps or a throttled/background tab.
+    // A dev-only instant-snap escape hatch (window.__ro_debug_snap) lets
+    // automated visual tests jump straight to the exact keyframe pose.
+    const snap = import.meta.env.DEV && (window as any).__ro_debug_snap;
     const dt = Math.min(delta, 0.1);
-    const posFactor = 1 - Math.exp(-6 * dt);
-    const fovFactor = 1 - Math.exp(-5 * dt);
+    const posFactor = snap ? 1 : 1 - Math.exp(-6 * dt);
+    const fovFactor = snap ? 1 : 1 - Math.exp(-5 * dt);
 
     camera.position.lerp(desiredPos.current, posFactor);
     lookTarget.current.lerp(pose.target, posFactor);
@@ -92,9 +95,13 @@ export default function ROScene({ quality }: ROSceneProps) {
       gl={{ antialias: true, powerPreference: 'high-performance', localClippingEnabled: true }}
       camera={{ position: [0.5, 2.6, 17], fov: 32, near: 0.1, far: 60 }}
       shadows={quality !== 'low'}
-      onCreated={({ gl }) => {
+      onCreated={({ gl, scene, camera }) => {
         gl.localClippingEnabled = true;
         gl.setClearColor(COLORS.background, 1);
+        if (import.meta.env.DEV) {
+          (window as any).__ro_scene = scene;
+          (window as any).__ro_camera = camera;
+        }
       }}
     >
       <color attach="background" args={[COLORS.background]} />

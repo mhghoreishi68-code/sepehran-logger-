@@ -14,7 +14,7 @@ export function evaluateVesselState(p: number): VesselState {
   const openClose1 = smoothstep(stageProgress(p, 0.28, 0.42));
   const closeAgain = smoothstep(stageProgress(p, 0.94, 1.0));
 
-  const rotationY = rotate * 0.62 * (1 - closeAgain * 0.0); // hold rotation
+  const rotationY = rotate * 0.62; // holds once reached, never unwinds
   const cutawayAngle = MAX_CUTAWAY * openClose1 * (1 - closeAgain);
 
   // Brief opacity dip while the shell transitions into cutaway, for a

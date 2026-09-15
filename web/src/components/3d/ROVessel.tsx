@@ -40,9 +40,22 @@ export default function ROVessel() {
     const threshold = THREE.MathUtils.lerp(VESSEL_RADIUS + 0.6, -0.05, openT);
     clipPlane.constant = -threshold;
 
+    // depthWrite stays off only while the cutaway is actually open --
+    // that's the only time something (the membrane stack) needs to be
+    // visible *through* this material despite it drawing first. Once the
+    // shell is fully closed again (openT ~ 0, the hero entry/exit shots),
+    // there's nothing behind it to protect, so it reverts to a normal
+    // depth-writing opaque-looking surface -- a large, double-sided,
+    // always-depthWrite:false tube produced visible gaps at oblique/far
+    // viewing angles because its own front and back faces have no reliable
+    // draw-order relative to each other without the depth buffer.
+    const revealing = openT > 0.02;
+    const activePlanes = revealing ? [clipPlane] : [];
+
     if (shellMatRef.current) {
       shellMatRef.current.opacity = state.shellOpacity;
-      shellMatRef.current.clippingPlanes = [clipPlane];
+      shellMatRef.current.clippingPlanes = activePlanes;
+      shellMatRef.current.depthWrite = !revealing;
     }
     // The domed heads must clip in sync with the shell -- otherwise they
     // stay permanently solid and can physically block the camera's view of
@@ -50,7 +63,8 @@ export default function ROVessel() {
     domeMatRefs.current.forEach((m) => {
       if (!m) return;
       m.opacity = state.shellOpacity;
-      m.clippingPlanes = [clipPlane];
+      m.clippingPlanes = activePlanes;
+      m.depthWrite = !revealing;
     });
   });
 
@@ -74,7 +88,6 @@ export default function ROVessel() {
           envMapIntensity={1.4}
           side={THREE.DoubleSide}
           transparent
-          depthWrite={false}
           clippingPlanes={[clipPlane]}
           clipShadows
         />
@@ -100,7 +113,6 @@ export default function ROVessel() {
             roughness={0.42}
             envMapIntensity={1.4}
             transparent
-            depthWrite={false}
             clipShadows
           />
         </mesh>

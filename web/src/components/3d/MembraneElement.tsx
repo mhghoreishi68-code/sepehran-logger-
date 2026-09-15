@@ -64,8 +64,12 @@ export default function MembraneElement({ position, length, radius, revealRef, e
 
   return (
     <group ref={groupRef} position={position}>
-      {/* Outer membrane shell */}
-      <mesh rotation={[0, 0, Math.PI / 2]}>
+      {/* Outer membrane shell. depthWrite is off so it never occludes the
+          layers nested inside it -- transparent materials write depth by
+          default in three.js, which would otherwise hide the spacer/tube
+          even at low opacity. renderOrder keeps the outside-in stacking
+          deterministic regardless of per-frame distance sorting. */}
+      <mesh rotation={[0, 0, Math.PI / 2]} renderOrder={0}>
         <cylinderGeometry args={[radius, radius, length, 48, 1, true]} />
         <meshStandardMaterial
           ref={shellMatRef}
@@ -73,23 +77,25 @@ export default function MembraneElement({ position, length, radius, revealRef, e
           roughness={0.75}
           metalness={0.05}
           transparent
+          depthWrite={false}
           side={THREE.DoubleSide}
         />
       </mesh>
 
       {/* Wound-line surface pattern suggesting the spiral leaf structure */}
-      <mesh geometry={woundGeometry}>
-        <meshStandardMaterial ref={woundMatRef} color={COLORS.vesselMetalDark} roughness={0.6} transparent />
+      <mesh geometry={woundGeometry} renderOrder={1}>
+        <meshStandardMaterial ref={woundMatRef} color={COLORS.vesselMetalDark} roughness={0.6} transparent depthWrite={false} />
       </mesh>
 
       {/* Inner feed-spacer channel (visible as shell fades in close-up) */}
-      <mesh rotation={[0, 0, Math.PI / 2]}>
+      <mesh rotation={[0, 0, Math.PI / 2]} renderOrder={2}>
         <cylinderGeometry args={[radius * 0.7, radius * 0.7, length * 0.98, 32, 1, true]} />
         <meshStandardMaterial
           ref={spacerMatRef}
           color={COLORS.accent}
           roughness={0.4}
           transparent
+          depthWrite={false}
           side={THREE.DoubleSide}
           emissive={COLORS.accentDim}
           emissiveIntensity={0.3}
@@ -97,14 +103,14 @@ export default function MembraneElement({ position, length, radius, revealRef, e
       </mesh>
 
       {/* Central permeate tube, protruding slightly beyond the element for a connected-cartridge look */}
-      <mesh rotation={[0, 0, Math.PI / 2]}>
+      <mesh rotation={[0, 0, Math.PI / 2]} renderOrder={4}>
         <cylinderGeometry args={[MEMBRANE_TUBE_RADIUS, MEMBRANE_TUBE_RADIUS, length + tubeStub * 2, 20]} />
         <meshStandardMaterial ref={tubeMatRef} color={COLORS.membraneTube} metalness={0.7} roughness={0.3} transparent />
       </mesh>
 
       {/* End caps (anti-telescoping discs) */}
       {[-1, 1].map((dir, i) => (
-        <mesh key={dir} position={[(dir * length) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <mesh key={dir} position={[(dir * length) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} renderOrder={3}>
           <ringGeometry args={[MEMBRANE_TUBE_RADIUS * 1.3, radius * 0.98, 32]} />
           <meshStandardMaterial
             ref={(m) => {
@@ -113,6 +119,7 @@ export default function MembraneElement({ position, length, radius, revealRef, e
             color={COLORS.vesselMetalDark}
             roughness={0.7}
             transparent
+            depthWrite={false}
             side={THREE.DoubleSide}
           />
         </mesh>

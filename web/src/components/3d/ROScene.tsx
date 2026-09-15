@@ -39,9 +39,8 @@ function CameraRig() {
     // not on how many frames happened to render, so the cinematic follow
     // feels the same at 30fps, 60fps or a throttled/background tab.
     const dt = Math.min(delta, 0.1);
-    const snap = (window as any).__ro_debug_snap;
-    const posFactor = snap ? 1 : 1 - Math.exp(-6 * dt);
-    const fovFactor = snap ? 1 : 1 - Math.exp(-5 * dt);
+    const posFactor = 1 - Math.exp(-6 * dt);
+    const fovFactor = 1 - Math.exp(-5 * dt);
 
     camera.position.lerp(desiredPos.current, posFactor);
     lookTarget.current.lerp(pose.target, posFactor);
@@ -51,15 +50,6 @@ function CameraRig() {
     if (cam.fov !== undefined) {
       cam.fov = THREE.MathUtils.lerp(cam.fov, pose.fov, fovFactor);
       cam.updateProjectionMatrix();
-    }
-
-    if ((window as any).__ro_debug_log) {
-      console.log(
-        'DBG p=' + p.toFixed(3),
-        'camPos=', camera.position.toArray().map((v) => v.toFixed(2)),
-        'target=', lookTarget.current.toArray().map((v) => v.toFixed(2)),
-        'fov=', cam.fov.toFixed(1),
-      );
     }
   });
 
@@ -72,16 +62,12 @@ function SceneContents() {
       <CameraRig />
       <LightingSystem />
       <ROVessel />
-      {!new URLSearchParams(window.location.search).has('vesselOnly') && (
-        <>
-          <MembraneAssembly />
-          <WaterParticles />
-          <ConcentrateFlow />
-          <PermeateFlow />
-          <SaltParticles />
-          <EngineeringLabels />
-        </>
-      )}
+      <MembraneAssembly />
+      <WaterParticles />
+      <ConcentrateFlow />
+      <PermeateFlow />
+      <SaltParticles />
+      <EngineeringLabels />
       <fog attach="fog" args={[COLORS.backgroundDeep, 12, 34]} />
 
       {/* Procedural studio environment (no external HDRI fetch) so metal
